@@ -14,16 +14,294 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bets: {
+        Row: {
+          entry_fee: number
+          id: string
+          placed_at: string
+          points: number
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          entry_fee?: number
+          id?: string
+          placed_at?: string
+          points?: number
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          entry_fee?: number
+          id?: string
+          placed_at?: string
+          points?: number
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bets_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      matches: {
+        Row: {
+          created_at: string
+          group_name: string | null
+          id: string
+          kickoff_utc: string
+          score_a: number | null
+          score_b: number | null
+          stage: string
+          status: string
+          team_a_id: string | null
+          team_b_id: string | null
+          venue: string | null
+          winner_team_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          group_name?: string | null
+          id?: string
+          kickoff_utc: string
+          score_a?: number | null
+          score_b?: number | null
+          stage?: string
+          status?: string
+          team_a_id?: string | null
+          team_b_id?: string | null
+          venue?: string | null
+          winner_team_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          group_name?: string | null
+          id?: string
+          kickoff_utc?: string
+          score_a?: number | null
+          score_b?: number | null
+          stage?: string
+          status?: string
+          team_a_id?: string | null
+          team_b_id?: string | null
+          venue?: string | null
+          winner_team_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matches_team_a_id_fkey"
+            columns: ["team_a_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_team_b_id_fkey"
+            columns: ["team_b_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_winner_team_id_fkey"
+            columns: ["winner_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string
+          id: string
+          payment_status: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name: string
+          id: string
+          payment_status?: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          payment_status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      quiz_progress: {
+        Row: {
+          answered_at: string
+          correct: boolean
+          id: string
+          question_id: string
+          user_id: string
+        }
+        Insert: {
+          answered_at?: string
+          correct: boolean
+          id?: string
+          question_id: string
+          user_id: string
+        }
+        Update: {
+          answered_at?: string
+          correct?: boolean
+          id?: string
+          question_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_progress_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_questions: {
+        Row: {
+          correct_index: number
+          created_at: string
+          explanation: string | null
+          id: string
+          options: Json
+          question: string
+          tier: Database["public"]["Enums"]["quiz_tier"]
+        }
+        Insert: {
+          correct_index: number
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          options: Json
+          question: string
+          tier: Database["public"]["Enums"]["quiz_tier"]
+        }
+        Update: {
+          correct_index?: number
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          options?: Json
+          question?: string
+          tier?: Database["public"]["Enums"]["quiz_tier"]
+        }
+        Relationships: []
+      }
+      teams: {
+        Row: {
+          coach: string | null
+          code: string
+          created_at: string
+          fifa_rank: number | null
+          flag_emoji: string
+          group_name: string | null
+          id: string
+          is_eliminated: boolean
+          name: string
+          squad: string[] | null
+          wc_form: string | null
+        }
+        Insert: {
+          coach?: string | null
+          code: string
+          created_at?: string
+          fifa_rank?: number | null
+          flag_emoji: string
+          group_name?: string | null
+          id?: string
+          is_eliminated?: boolean
+          name: string
+          squad?: string[] | null
+          wc_form?: string | null
+        }
+        Update: {
+          coach?: string | null
+          code?: string
+          created_at?: string
+          fifa_rank?: number | null
+          flag_emoji?: string
+          group_name?: string | null
+          id?: string
+          is_eliminated?: boolean
+          name?: string
+          squad?: string[] | null
+          wc_form?: string | null
+        }
+        Relationships: []
+      }
+      trivia_facts: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "member"
+      quiz_tier: "beginner" | "professional" | "expertise"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +428,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "member"],
+      quiz_tier: ["beginner", "professional", "expertise"],
+    },
   },
 } as const
