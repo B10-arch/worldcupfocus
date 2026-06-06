@@ -11,23 +11,25 @@ export const Route = createFileRoute("/_authenticated/quiz")({
 });
 
 const TIERS = [
-  { key: "beginner", label: "Beginner", color: "primary" },
-  { key: "professional", label: "Professional", color: "magenta" },
-  { key: "expertise", label: "Expertise", color: "amber-pop" },
+  { key: "beginner", label: "Beginner" },
+  { key: "professional", label: "Professional" },
+  { key: "expertise", label: "Expertise" },
 ] as const;
+
+type TierKey = (typeof TIERS)[number]["key"];
 
 function QuizPage() {
   const { user } = Route.useRouteContext();
   const qc = useQueryClient();
-  const [activeTier, setActiveTier] = useState<(typeof TIERS)[number]["key"]>("beginner");
+  const [activeTier, setActiveTier] = useState<TierKey>("beginner");
 
-  const questions = useQuery({
-    queryKey: ["quiz-q", activeTier],
+  // All questions across all tiers (small dataset; lets us count per-tier completion accurately)
+  const allQs = useQuery({
+    queryKey: ["quiz-questions-all"],
     queryFn: async () => {
       const { data } = await supabase
         .from("quiz_questions")
         .select("*")
-        .eq("tier", activeTier)
         .order("created_at");
       return data ?? [];
     },
@@ -41,50 +43,32 @@ function QuizPage() {
     },
   });
 
-  const tierStats = TIERS.map((t) => {
-    const tierQs = (questions.data ?? []).filter(() => true); // re-evaluated per tier load below
-    return t;
-  });
-
-  // Compute per-tier completion using a separate query
-  const allCounts = useQuery({
-    queryKey: ["quiz-counts"],
-    queryFn: async () => {
-      const tiers = ["beginner", "professional", "expertise"] as const;
-      const out: Record<string, number> = {};
-      for (const t of tiers) {
-        const { count } = await supabase
-          .from("quiz_questions")
-          .select("*", { count: "exact", head: true })
-          .eq("tier", t);
-        out[t] = count ?? 0;
-      }
-      return out;
-    },
-  });
-
-  function tierCorrectCount(tier: string) {
-    const qIds = new Set((questions.data ?? []).filter((q) => q.tier === tier).map((q) => q.id));
-    return (progress.data ?? []).filter((p) => p.correct && qIds.has(p.question_id)).length;
-  }
+  const tierTotals: Record<string, number> = { beginner: 0, professional: 0, expertise: 0 };
+  for (const q of allQs.data ?? []) tierTotals[q.tier] = (tierTotals[q.tier] ?? 0) + 1;
 
   const answeredIds = new Set((progress.data ?? []).map((p) => p.question_id));
   const correctIds = new Set((progress.data ?? []).filter((p) => p.correct).map((p) => p.question_id));
 
-  const beginnerDone = (() => {
-    const total = allCounts.data?.["beginner"] ?? 0;
-    const done = (progress.data ?? []).filter((p) => p.correct).length;
-    // need full tier correct to unlock — approximation: count beginner correct
-    return done >= total && total > 0;
-  })();
+  function tierAnsweredCount(tier: TierKey) {
+    return (allQs.data ?? []).filter((q) => q.tier === tier && answeredIds.has(q.id)).length;
+  }
+  function tierCorrectCount(tier: TierKey) {
+    return (allQs.data ?? []).filter((q) => q.tier === tier && correctIds.has(q.id)).length;
+  }
+  function tierCompleted(tier: TierKey) {
+    const total = tierTotals[tier] ?? 0;
+    return total > 0 && tierAnsweredCount(tier) >= total;
+  }
 
-  const tierLocked: Record<string, boolean> = {
+  // Gating: a tier unlocks once every question in the prior tier has been answered.
+  const tierLocked: Record<TierKey, boolean> = {
     beginner: false,
-    professional: !beginnerDone,
-    expertise: !beginnerDone, // simplified: pro needs to be done too — we don't fetch separately here
+    professional: !tierCompleted("beginner"),
+    expertise: !tierCompleted("beginner") || !tierCompleted("professional"),
   };
 
   async function answer(qid: string, idx: number, correctIdx: number) {
+    if (answeredIds.has(qid)) return;
     const correct = idx === correctIdx;
     const { error } = await supabase
       .from("quiz_progress")
@@ -94,24 +78,30 @@ function QuizPage() {
       return;
     }
     if (correct) toast.success("Correct!");
-    else toast.error("Not quite — try the next one");
-    qc.invalidateQueries({ queryKey: ["quiz-prog-all"] });
-    qc.invalidateQueries({ queryKey: ["quiz-progress"] });
+    else toast.message("Saved — try the next one");
+    // Refetch so unlocks reflect immediately without a manual refresh
+    await qc.invalidateQueries({ queryKey: ["quiz-prog-all"] });
+    await qc.invalidateQueries({ queryKey: ["quiz-progress"] });
   }
+
+  const activeQuestions = (allQs.data ?? []).filter((q) => q.tier === activeTier);
 
   return (
     <div className="space-y-8">
       <header>
         <h1 className="font-display text-4xl font-bold">World Cup Trivia</h1>
-        <p className="mt-2 text-muted-foreground">100 questions across three tiers. Clear a tier to unlock the next.</p>
+        <p className="mt-2 text-muted-foreground">
+          Three tiers, 100 questions total. Answer every question in a tier to unlock the next.
+        </p>
       </header>
 
       <div className="grid gap-3 md:grid-cols-3">
         {TIERS.map((t) => {
-          const total = allCounts.data?.[t.key] ?? 0;
-          const done = tierCorrectCount(t.key);
+          const total = tierTotals[t.key] ?? 0;
+          const done = tierAnsweredCount(t.key);
           const locked = tierLocked[t.key];
           const isActive = activeTier === t.key;
+          const prior = t.key === "professional" ? "Beginner" : t.key === "expertise" ? "Professional" : null;
           return (
             <button
               key={t.key}
@@ -119,11 +109,17 @@ function QuizPage() {
               disabled={locked}
               className={`rounded-2xl border p-5 text-left transition ${
                 isActive ? "border-primary bg-primary/5" : "border-border bg-surface"
-              } ${locked ? "cursor-not-allowed opacity-50" : "hover:border-primary/50"}`}
+              } ${locked ? "cursor-not-allowed opacity-60" : "hover:border-primary/50"}`}
             >
               <div className="flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{t.label}</p>
-                {locked ? <Lock className="size-4" /> : done === total && total > 0 ? <CheckCircle2 className="size-4 text-pitch" /> : null}
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  {t.label}
+                </p>
+                {locked ? (
+                  <Lock className="size-4" />
+                ) : done === total && total > 0 ? (
+                  <CheckCircle2 className="size-4 text-pitch" />
+                ) : null}
               </div>
               <p className="mt-2 font-display text-2xl font-bold">
                 {done}/{total}
@@ -134,6 +130,16 @@ function QuizPage() {
                   style={{ width: `${total ? (done / total) * 100 : 0}%` }}
                 />
               </div>
+              {locked && prior && (
+                <p className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Complete {prior} to unlock
+                </p>
+              )}
+              {!locked && total > 0 && tierCorrectCount(t.key) > 0 && (
+                <p className="mt-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {tierCorrectCount(t.key)} correct
+                </p>
+              )}
             </button>
           );
         })}
@@ -141,14 +147,19 @@ function QuizPage() {
 
       <section className="space-y-4">
         <h2 className="font-display text-xl font-bold capitalize">{activeTier} questions</h2>
-        {questions.data?.map((q, idx) => {
+        {activeQuestions.length === 0 && (
+          <p className="text-sm text-muted-foreground">No questions in this tier yet.</p>
+        )}
+        {activeQuestions.map((q, idx) => {
           const answered = answeredIds.has(q.id);
           const wasCorrect = correctIds.has(q.id);
           const opts = q.options as string[];
           return (
             <div key={q.id} className="rounded-2xl border border-border bg-surface p-6 shadow-card">
               <div className="mb-4 flex items-start gap-3">
-                <span className="font-display text-lg font-bold text-primary">{String(idx + 1).padStart(2, "0")}</span>
+                <span className="font-display text-lg font-bold text-primary">
+                  {String(idx + 1).padStart(2, "0")}
+                </span>
                 <p className="text-base font-semibold">{q.question}</p>
               </div>
               <div className="grid gap-2 md:grid-cols-2">
@@ -174,7 +185,8 @@ function QuizPage() {
               </div>
               {answered && (
                 <p className="mt-3 text-xs text-muted-foreground">
-                  {wasCorrect ? "✓ Correct. " : "✗ "}{q.explanation}
+                  {wasCorrect ? "✓ Correct. " : "✗ "}
+                  {q.explanation}
                 </p>
               )}
             </div>

@@ -61,6 +61,7 @@ export type Database = {
           status: string
           team_a_id: string | null
           team_b_id: string | null
+          time_tbc: boolean
           venue: string | null
           winner_team_id: string | null
         }
@@ -75,6 +76,7 @@ export type Database = {
           status?: string
           team_a_id?: string | null
           team_b_id?: string | null
+          time_tbc?: boolean
           venue?: string | null
           winner_team_id?: string | null
         }
@@ -89,6 +91,7 @@ export type Database = {
           status?: string
           team_a_id?: string | null
           team_b_id?: string | null
+          time_tbc?: boolean
           venue?: string | null
           winner_team_id?: string | null
         }

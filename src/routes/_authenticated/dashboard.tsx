@@ -1,8 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatNPT, formatNPTDate, formatNPR } from "@/lib/time";
-import { Trophy, Sparkles, ArrowUpRight, Flame } from "lucide-react";
+import {
+  formatNPT,
+  formatNPTDate,
+  formatNPR,
+  formatNPTFull,
+  isTournamentStarted,
+  TOURNAMENT_START_UTC,
+} from "@/lib/time";
+import { Trophy, Sparkles, ArrowUpRight, Flame, CalendarClock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard · Uni-Corn Pool" }] }),
@@ -97,6 +104,15 @@ function Dashboard() {
 
   return (
     <div className="space-y-12">
+      {!isTournamentStarted() && (
+        <div className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm">
+          <CalendarClock className="size-5 text-primary" />
+          <p>
+            <strong>Tournament begins {formatNPTFull(TOURNAMENT_START_UTC)}.</strong> No matches have
+            been played yet — scores and standings will update live as results come in.
+          </p>
+        </div>
+      )}
       {/* Hero + trivia */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div
@@ -278,19 +294,25 @@ function MatchCard({ match }: { match: any }) {
     <div className="group relative rounded-2xl border border-border bg-surface p-6 shadow-card transition hover:shadow-lg">
       <div className="mb-4 flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          Group {match.group_name} · {match.venue}
+          {match.stage === "group" ? `Group ${match.group_name}` : match.stage.toUpperCase()}
+          {match.venue ? ` · ${match.venue}` : ""}
         </span>
         <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-bold">
-          {formatNPTDate(match.kickoff_utc)}
+          {match.time_tbc ? "TBC" : formatNPTDate(match.kickoff_utc)}
         </span>
       </div>
       <div className="flex items-center justify-between gap-4">
-        <TeamSide team={match.team_a} score={match.score_a} />
+        <TeamSide team={match.team_a} />
         <div className="flex flex-col items-center">
           {live ? (
             <span className="font-display text-xl font-bold text-magenta">LIVE</span>
           ) : finished ? (
             <span className="font-display text-xl font-bold">FT</span>
+          ) : match.time_tbc ? (
+            <>
+              <span className="font-display text-base font-bold">vs</span>
+              <span className="text-[10px] font-bold uppercase text-muted-foreground">Time TBC</span>
+            </>
           ) : (
             <>
               <span className="font-display text-xl font-bold">{formatNPT(match.kickoff_utc)}</span>
@@ -298,22 +320,24 @@ function MatchCard({ match }: { match: any }) {
             </>
           )}
         </div>
-        <TeamSide team={match.team_b} score={match.score_b} reverse />
+        <TeamSide team={match.team_b} />
       </div>
-      {(live || finished) && (
+      {(live || finished) && match.score_a != null && match.score_b != null && (
         <div className="mt-6 text-center font-display text-xl font-bold">
-          {match.score_a ?? 0} — {match.score_b ?? 0}
+          {match.score_a} — {match.score_b}
         </div>
       )}
     </div>
   );
 }
 
-function TeamSide({ team, score: _score, reverse = false }: { team: any; score: number | null; reverse?: boolean }) {
+function TeamSide({ team }: { team: any }) {
   return (
-    <div className={`flex flex-1 flex-col items-center gap-2 ${reverse ? "" : ""}`}>
-      <div className="grid size-12 place-items-center rounded-lg bg-secondary text-2xl">{team?.flag_emoji}</div>
-      <span className="text-xs font-bold">{team?.name}</span>
+    <div className="flex flex-1 flex-col items-center gap-2">
+      <div className="grid size-12 place-items-center rounded-lg bg-secondary text-2xl">
+        {team?.flag_emoji ?? "🏳️"}
+      </div>
+      <span className="text-xs font-bold">{team?.name ?? "TBD"}</span>
     </div>
   );
 }
