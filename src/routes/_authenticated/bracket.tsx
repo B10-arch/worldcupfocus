@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { formatNPTDate, formatNPT } from "@/lib/time";
 
 export const Route = createFileRoute("/_authenticated/bracket")({
   head: () => ({ meta: [{ title: "Bracket · Uni-Corn Pool" }] }),
@@ -12,6 +13,7 @@ const STAGES = [
   { key: "r16", label: "Round of 16" },
   { key: "qf", label: "Quarter-Final" },
   { key: "sf", label: "Semi-Final" },
+  { key: "third", label: "Third Place" },
   { key: "final", label: "Final" },
 ] as const;
 
@@ -33,7 +35,8 @@ function BracketPage() {
       <header>
         <h1 className="font-display text-4xl font-bold">Knockout bracket</h1>
         <p className="mt-2 text-muted-foreground">
-          The bracket fills in automatically as group-stage results lock in. Winners advance to the next round.
+          Round of 32 → Final + third-place match. Slots fill in automatically as group results
+          lock in.
         </p>
       </header>
 
@@ -54,9 +57,22 @@ function BracketPage() {
                   )}
                   {list.map((m) => (
                     <div key={m.id} className="rounded-2xl border border-border bg-surface p-3 shadow-card">
-                      <Side team={m.team_a} score={m.score_a} winner={m.winner_team_id === m.team_a_id} />
+                      <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        {m.time_tbc
+                          ? "Time TBC"
+                          : `${formatNPTDate(m.kickoff_utc)} · ${formatNPT(m.kickoff_utc)} NPT`}
+                      </div>
+                      <Side
+                        team={m.team_a}
+                        score={m.status === "finished" ? m.score_a : null}
+                        winner={m.winner_team_id != null && m.winner_team_id === m.team_a_id}
+                      />
                       <div className="my-1 h-px bg-border" />
-                      <Side team={m.team_b} score={m.score_b} winner={m.winner_team_id === m.team_b_id} />
+                      <Side
+                        team={m.team_b}
+                        score={m.status === "finished" ? m.score_b : null}
+                        winner={m.winner_team_id != null && m.winner_team_id === m.team_b_id}
+                      />
                     </div>
                   ))}
                 </div>
@@ -71,7 +87,11 @@ function BracketPage() {
 
 function Side({ team, score, winner }: { team: any; score: number | null; winner: boolean }) {
   return (
-    <div className={`flex items-center justify-between rounded-lg p-2 text-sm ${winner ? "bg-primary/10 font-bold" : ""}`}>
+    <div
+      className={`flex items-center justify-between rounded-lg p-2 text-sm ${
+        winner ? "bg-primary/10 font-bold" : ""
+      }`}
+    >
       <span className="flex items-center gap-2">
         <span className="text-lg">{team?.flag_emoji ?? "🏳️"}</span>
         <span>{team?.name ?? "TBD"}</span>

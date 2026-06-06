@@ -5,9 +5,21 @@ import { AppShell } from "@/components/AppShell";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
+
+    // Force new users to choose a team before reaching the rest of the app.
+    if (location.pathname !== "/bet") {
+      const { count } = await supabase
+        .from("bets")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", data.user.id);
+      if (!count || count === 0) {
+        throw redirect({ to: "/bet" });
+      }
+    }
+
     return { user: data.user };
   },
   component: AuthedLayout,
