@@ -1,8 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatNPT, formatNPTDate, formatNPR } from "@/lib/time";
-import { Trophy, Sparkles, ArrowUpRight, Flame } from "lucide-react";
+import {
+  formatNPT,
+  formatNPTDate,
+  formatNPR,
+  formatNPTFull,
+  isTournamentStarted,
+  TOURNAMENT_START_UTC,
+} from "@/lib/time";
+import { Trophy, Sparkles, ArrowUpRight, Flame, CalendarClock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard · Uni-Corn Pool" }] }),
