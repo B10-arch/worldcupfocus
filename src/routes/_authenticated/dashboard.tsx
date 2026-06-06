@@ -104,6 +104,15 @@ function Dashboard() {
 
   return (
     <div className="space-y-12">
+      {!isTournamentStarted() && (
+        <div className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm">
+          <CalendarClock className="size-5 text-primary" />
+          <p>
+            <strong>Tournament begins {formatNPTFull(TOURNAMENT_START_UTC)}.</strong> No matches have
+            been played yet — scores and standings will update live as results come in.
+          </p>
+        </div>
+      )}
       {/* Hero + trivia */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div
