@@ -34,8 +34,20 @@ function AuthedLayout() {
       return data;
     },
   });
+  const { data: isAdmin } = useQuery({
+    queryKey: ["is-admin", user.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      return !!data;
+    },
+  });
   return (
-    <AppShell displayName={profile?.display_name ?? user.email ?? undefined}>
+    <AppShell displayName={profile?.display_name ?? user.email ?? undefined} isAdmin={!!isAdmin}>
       <Outlet />
     </AppShell>
   );
