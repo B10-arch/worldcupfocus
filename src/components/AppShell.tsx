@@ -1,5 +1,5 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { Trophy, LayoutDashboard, CalendarDays, Flag, GitFork, Brain, Medal, LogOut } from "lucide-react";
+import { Trophy, LayoutDashboard, CalendarDays, Flag, GitFork, Brain, Medal, LogOut, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -13,7 +13,7 @@ const navItems = [
   { to: "/leaderboard", label: "Leaderboard", icon: Medal },
 ] as const;
 
-export function AppShell({ children, displayName }: { children: ReactNode; displayName?: string }) {
+export function AppShell({ children, displayName, isAdmin }: { children: ReactNode; displayName?: string; isAdmin?: boolean }) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
