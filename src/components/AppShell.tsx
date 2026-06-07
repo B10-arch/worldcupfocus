@@ -58,6 +58,15 @@ export function AppShell({ children, displayName, isAdmin }: { children: ReactNo
                 {item.label}
               </Link>
             ))}
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="ml-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary transition-colors hover:bg-primary/20"
+                activeProps={{ className: "ml-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground" }}
+              >
+                <ShieldCheck className="size-3.5" /> Admin
+              </Link>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
