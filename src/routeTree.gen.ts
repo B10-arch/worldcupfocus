@@ -19,6 +19,7 @@ import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenti
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedBracketRouteImport } from './routes/_authenticated/bracket'
 import { Route as AuthenticatedBetRouteImport } from './routes/_authenticated/bet'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedTeamsCodeRouteImport } from './routes/_authenticated/teams.$code'
 
 const AuthRoute = AuthRouteImport.update({
@@ -71,6 +72,11 @@ const AuthenticatedBetRoute = AuthenticatedBetRouteImport.update({
   path: '/bet',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedTeamsCodeRoute = AuthenticatedTeamsCodeRouteImport.update({
   id: '/$code',
   path: '/$code',
@@ -80,6 +86,7 @@ const AuthenticatedTeamsCodeRoute = AuthenticatedTeamsCodeRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/bet': typeof AuthenticatedBetRoute
   '/bracket': typeof AuthenticatedBracketRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -92,6 +99,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/bet': typeof AuthenticatedBetRoute
   '/bracket': typeof AuthenticatedBracketRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/bet': typeof AuthenticatedBetRoute
   '/_authenticated/bracket': typeof AuthenticatedBracketRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/admin'
     | '/bet'
     | '/bracket'
     | '/dashboard'
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/admin'
     | '/bet'
     | '/bracket'
     | '/dashboard'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/admin'
     | '/_authenticated/bet'
     | '/_authenticated/bracket'
     | '/_authenticated/dashboard'
@@ -233,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBetRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/teams/$code': {
       id: '/_authenticated/teams/$code'
       path: '/$code'
@@ -255,6 +274,7 @@ const AuthenticatedTeamsRouteWithChildren =
   AuthenticatedTeamsRoute._addFileChildren(AuthenticatedTeamsRouteChildren)
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedBetRoute: typeof AuthenticatedBetRoute
   AuthenticatedBracketRoute: typeof AuthenticatedBracketRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -265,6 +285,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedBetRoute: AuthenticatedBetRoute,
   AuthenticatedBracketRoute: AuthenticatedBracketRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
