@@ -237,7 +237,7 @@ function Dashboard() {
             )}
             {leaderboard.data?.map((row, i) => (
               <div
-                key={row.id}
+                key={row.bet_id}
                 className="flex items-center justify-between rounded-xl border border-border bg-background p-4"
               >
                 <div className="flex items-center gap-4">
@@ -245,9 +245,9 @@ function Dashboard() {
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <div>
-                    <p className="text-sm font-bold">{row.profile?.display_name ?? "Player"}</p>
+                    <p className="text-sm font-bold">{row.display_name ?? "Player"}</p>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Backed: {row.team?.flag_emoji} {row.team?.name}
+                      Backed: {row.team_flag_emoji} {row.team_name}
                     </p>
                   </div>
                 </div>
