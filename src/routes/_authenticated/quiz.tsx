@@ -166,25 +166,20 @@ function QuizPage() {
                 <p className="text-base font-semibold">{q.question}</p>
               </div>
               <div className="grid gap-2 md:grid-cols-2">
-                {opts.map((opt, i) => {
-                  const isCorrect = i === q.correct_index;
-                  return (
-                    <button
-                      key={i}
-                      disabled={answered}
-                      onClick={() => answer(q.id, i, q.correct_index)}
-                      className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
-                        answered
-                          ? isCorrect
-                            ? "border-pitch bg-pitch/10 text-pitch"
-                            : "border-border bg-muted text-muted-foreground"
-                          : "border-border bg-background hover:border-primary hover:bg-primary/5"
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  );
-                })}
+                {opts.map((opt, i) => (
+                  <button
+                    key={i}
+                    disabled={answered}
+                    onClick={() => answer(q.id, i)}
+                    className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
+                      answered
+                        ? "border-border bg-muted text-muted-foreground"
+                        : "border-border bg-background hover:border-primary hover:bg-primary/5"
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
               </div>
               {answered && (
                 <p className="mt-3 text-xs text-muted-foreground">
