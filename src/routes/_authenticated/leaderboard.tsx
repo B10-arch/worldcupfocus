@@ -8,20 +8,30 @@ export const Route = createFileRoute("/_authenticated/leaderboard")({
   component: LeaderboardPage,
 });
 
+type LeaderboardRow = {
+  bet_id: string;
+  user_id: string;
+  team_id: string;
+  points: number;
+  placed_at: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  team_name: string | null;
+  team_code: string | null;
+  team_flag_emoji: string | null;
+};
+
 function LeaderboardPage() {
   const { user } = Route.useRouteContext();
   const { data } = useQuery({
     queryKey: ["leaderboard", "full"],
     queryFn: async () => {
-      const { data: bets } = await supabase
-        .from("bets")
-        .select("*, team:teams(*)")
+      const { data } = await (supabase as any)
+        .from("leaderboard_entries")
+        .select("*")
         .order("points", { ascending: false })
         .order("placed_at", { ascending: true });
-      const ids = (bets ?? []).map((b) => b.user_id);
-      const { data: profiles } = await supabase.from("profiles").select("*").in("id", ids);
-      const pMap = new Map((profiles ?? []).map((p) => [p.id, p]));
-      return (bets ?? []).map((b) => ({ ...b, profile: pMap.get(b.user_id) }));
+      return (data ?? []) as LeaderboardRow[];
     },
   });
 
