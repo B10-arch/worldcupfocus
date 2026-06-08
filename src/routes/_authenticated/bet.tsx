@@ -1,8 +1,10 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPR, BET_LOCK_UTC, isBetLocked, formatNPTFull } from "@/lib/time";
+import { saveTeamPick } from "@/lib/bets.functions";
 import { toast } from "sonner";
 import { Check, Lock } from "lucide-react";
 
@@ -17,6 +19,7 @@ function BetPage() {
   const { user } = Route.useRouteContext();
   const router = useRouter();
   const qc = useQueryClient();
+  const savePick = useServerFn(saveTeamPick);
   const [selected, setSelected] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
@@ -54,9 +57,7 @@ function BetPage() {
     if (!selected || locked) return;
     setSaving(true);
     try {
-      const payload = { user_id: user.id, team_id: selected, entry_fee: ENTRY_FEE };
-      const { error } = await supabase.from("bets").upsert(payload, { onConflict: "user_id" });
-      if (error) throw error;
+      await savePick({ data: { teamId: selected } });
       toast.success(myBet.data ? "Team updated!" : "Team locked in! Pay Rs. 1,000 to confirm.");
       await qc.invalidateQueries();
       router.navigate({ to: "/dashboard" });
