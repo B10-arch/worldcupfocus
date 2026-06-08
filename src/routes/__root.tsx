@@ -72,8 +72,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Uni-Corn World Cup Pool" },
-      { name: "description", content: "Internal Uni-Corn betting pool for the 2026 FIFA World Cup." },
+      { title: "Focus World Cup Pool" },
+      { name: "description", content: "Internal Focus betting pool for the 2026 FIFA World Cup." },
+      { property: "og:title", content: "Focus World Cup Pool" },
+      { name: "twitter:title", content: "Focus World Cup Pool" },
+      { property: "og:description", content: "Internal Focus betting pool for the 2026 FIFA World Cup." },
+      { name: "twitter:description", content: "Internal Focus betting pool for the 2026 FIFA World Cup." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/91649544-bead-4c7d-b490-c4a89d207d18" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/91649544-bead-4c7d-b490-c4a89d207d18" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:type", content: "website" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
