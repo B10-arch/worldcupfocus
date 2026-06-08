@@ -24,12 +24,14 @@ function QuizPage() {
   const [activeTier, setActiveTier] = useState<TierKey>("beginner");
 
   // All questions across all tiers (small dataset; lets us count per-tier completion accurately)
+  // All questions across all tiers (correct_index is intentionally NOT selected -
+  // answers are validated server-side via the submit_quiz_answer RPC).
   const allQs = useQuery({
     queryKey: ["quiz-questions-all"],
     queryFn: async () => {
       const { data } = await supabase
         .from("quiz_questions")
-        .select("*")
+        .select("id, tier, question, options, explanation, created_at")
         .order("created_at");
       return data ?? [];
     },
