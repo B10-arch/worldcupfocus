@@ -69,16 +69,17 @@ function QuizPage() {
     expertise: !tierCompleted("beginner") || !tierCompleted("professional"),
   };
 
-  async function answer(qid: string, idx: number, correctIdx: number) {
+  async function answer(qid: string, idx: number) {
     if (answeredIds.has(qid)) return;
-    const correct = idx === correctIdx;
-    const { error } = await supabase
-      .from("quiz_progress")
-      .insert({ user_id: user.id, question_id: qid, correct });
+    const { data, error } = await (supabase as any).rpc("submit_quiz_answer", {
+      p_question_id: qid,
+      p_choice: idx,
+    });
     if (error) {
       toast.error("Could not save your answer");
       return;
     }
+    const correct = !!data?.correct;
     if (correct) toast.success("Correct!");
     else toast.message("Saved — try the next one");
     // Refetch so unlocks reflect immediately without a manual refresh
