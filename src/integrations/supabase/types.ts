@@ -291,15 +291,42 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      leaderboard_entries: {
+        Row: {
+          avatar_url: string | null
+          bet_id: string | null
+          display_name: string | null
+          placed_at: string | null
+          points: number | null
+          team_code: string | null
+          team_flag_emoji: string | null
+          team_id: string | null
+          team_name: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bets_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      get_total_bet_count: { Args: never; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      submit_quiz_answer: {
+        Args: { p_choice: number; p_question_id: string }
+        Returns: Json
       }
     }
     Enums: {

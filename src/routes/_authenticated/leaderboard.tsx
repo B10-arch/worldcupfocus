@@ -8,20 +8,30 @@ export const Route = createFileRoute("/_authenticated/leaderboard")({
   component: LeaderboardPage,
 });
 
+type LeaderboardRow = {
+  bet_id: string;
+  user_id: string;
+  team_id: string;
+  points: number;
+  placed_at: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  team_name: string | null;
+  team_code: string | null;
+  team_flag_emoji: string | null;
+};
+
 function LeaderboardPage() {
   const { user } = Route.useRouteContext();
   const { data } = useQuery({
     queryKey: ["leaderboard", "full"],
     queryFn: async () => {
-      const { data: bets } = await supabase
-        .from("bets")
-        .select("*, team:teams(*)")
+      const { data } = await (supabase as any)
+        .from("leaderboard_entries")
+        .select("*")
         .order("points", { ascending: false })
         .order("placed_at", { ascending: true });
-      const ids = (bets ?? []).map((b) => b.user_id);
-      const { data: profiles } = await supabase.from("profiles").select("*").in("id", ids);
-      const pMap = new Map((profiles ?? []).map((p) => [p.id, p]));
-      return (bets ?? []).map((b) => ({ ...b, profile: pMap.get(b.user_id) }));
+      return (data ?? []) as LeaderboardRow[];
     },
   });
 
@@ -53,7 +63,7 @@ function LeaderboardPage() {
             {data?.map((row, i) => {
               const me = row.user_id === user.id;
               return (
-                <tr key={row.id} className={me ? "bg-primary/5" : "hover:bg-muted/40"}>
+                <tr key={row.bet_id} className={me ? "bg-primary/5" : "hover:bg-muted/40"}>
                   <td className="px-4 py-4 font-display text-lg font-bold">
                     {i === 0 ? (
                       <span className="inline-flex items-center gap-1 text-amber-pop">
@@ -62,17 +72,16 @@ function LeaderboardPage() {
                     ) : String(i + 1).padStart(2, "0")}
                   </td>
                   <td className="px-4 py-4 font-bold">
-                    {row.profile?.display_name ?? "Player"}
+                    {row.display_name ?? "Player"}
                     {me && <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase text-primary-foreground">You</span>}
                   </td>
                   <td className="px-4 py-4">
-                    <span className="text-lg">{row.team?.flag_emoji}</span> {row.team?.name}
+                    <span className="text-lg">{row.team_flag_emoji}</span> {row.team_name}
                   </td>
                   <td className="px-4 py-4 text-xs text-muted-foreground">
                     {new Date(row.placed_at).toLocaleString()}
                   </td>
                   <td className="px-4 py-4">
-                    {/* payment status lives on profile */}
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
                       paid
                     </span>

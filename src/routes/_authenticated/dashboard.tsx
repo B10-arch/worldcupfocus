@@ -63,8 +63,8 @@ function Dashboard() {
   const betCount = useQuery({
     queryKey: ["bet-count"],
     queryFn: async () => {
-      const { count } = await supabase.from("bets").select("*", { count: "exact", head: true });
-      return count ?? 0;
+      const { data } = await (supabase as any).rpc("get_total_bet_count");
+      return (data as number | null) ?? 0;
     },
   });
 
@@ -72,7 +72,7 @@ function Dashboard() {
     queryKey: ["quiz-progress", user.id],
     queryFn: async () => {
       const [{ count: total }, { count: done }] = await Promise.all([
-        supabase.from("quiz_questions").select("*", { count: "exact", head: true }),
+        supabase.from("quiz_questions").select("id", { count: "exact", head: true }),
         supabase
           .from("quiz_progress")
           .select("*", { count: "exact", head: true })
@@ -86,17 +86,21 @@ function Dashboard() {
   const leaderboard = useQuery({
     queryKey: ["leaderboard", "top"],
     queryFn: async () => {
-      const { data: bets } = await supabase
-        .from("bets")
-        .select("*, team:teams(*)")
+      const { data } = await (supabase as any)
+        .from("leaderboard_entries")
+        .select("*")
         .order("points", { ascending: false })
         .order("placed_at", { ascending: true })
         .limit(5);
-      if (!bets) return [];
-      const ids = bets.map((b) => b.user_id);
-      const { data: profiles } = await supabase.from("profiles").select("*").in("id", ids);
-      const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
-      return bets.map((b) => ({ ...b, profile: profileMap.get(b.user_id) }));
+      return (data ?? []) as Array<{
+        bet_id: string;
+        user_id: string;
+        points: number;
+        placed_at: string;
+        display_name: string | null;
+        team_name: string | null;
+        team_flag_emoji: string | null;
+      }>;
     },
   });
 
@@ -233,7 +237,7 @@ function Dashboard() {
             )}
             {leaderboard.data?.map((row, i) => (
               <div
-                key={row.id}
+                key={row.bet_id}
                 className="flex items-center justify-between rounded-xl border border-border bg-background p-4"
               >
                 <div className="flex items-center gap-4">
@@ -241,9 +245,9 @@ function Dashboard() {
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <div>
-                    <p className="text-sm font-bold">{row.profile?.display_name ?? "Player"}</p>
+                    <p className="text-sm font-bold">{row.display_name ?? "Player"}</p>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Backed: {row.team?.flag_emoji} {row.team?.name}
+                      Backed: {row.team_flag_emoji} {row.team_name}
                     </p>
                   </div>
                 </div>

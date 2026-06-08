@@ -24,12 +24,14 @@ function QuizPage() {
   const [activeTier, setActiveTier] = useState<TierKey>("beginner");
 
   // All questions across all tiers (small dataset; lets us count per-tier completion accurately)
+  // All questions across all tiers (correct_index is intentionally NOT selected -
+  // answers are validated server-side via the submit_quiz_answer RPC).
   const allQs = useQuery({
     queryKey: ["quiz-questions-all"],
     queryFn: async () => {
       const { data } = await supabase
         .from("quiz_questions")
-        .select("*")
+        .select("id, tier, question, options, explanation, created_at")
         .order("created_at");
       return data ?? [];
     },
@@ -67,16 +69,17 @@ function QuizPage() {
     expertise: !tierCompleted("beginner") || !tierCompleted("professional"),
   };
 
-  async function answer(qid: string, idx: number, correctIdx: number) {
+  async function answer(qid: string, idx: number) {
     if (answeredIds.has(qid)) return;
-    const correct = idx === correctIdx;
-    const { error } = await supabase
-      .from("quiz_progress")
-      .insert({ user_id: user.id, question_id: qid, correct });
+    const { data, error } = await (supabase as any).rpc("submit_quiz_answer", {
+      p_question_id: qid,
+      p_choice: idx,
+    });
     if (error) {
       toast.error("Could not save your answer");
       return;
     }
+    const correct = !!data?.correct;
     if (correct) toast.success("Correct!");
     else toast.message("Saved — try the next one");
     // Refetch so unlocks reflect immediately without a manual refresh
@@ -163,25 +166,20 @@ function QuizPage() {
                 <p className="text-base font-semibold">{q.question}</p>
               </div>
               <div className="grid gap-2 md:grid-cols-2">
-                {opts.map((opt, i) => {
-                  const isCorrect = i === q.correct_index;
-                  return (
-                    <button
-                      key={i}
-                      disabled={answered}
-                      onClick={() => answer(q.id, i, q.correct_index)}
-                      className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
-                        answered
-                          ? isCorrect
-                            ? "border-pitch bg-pitch/10 text-pitch"
-                            : "border-border bg-muted text-muted-foreground"
-                          : "border-border bg-background hover:border-primary hover:bg-primary/5"
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  );
-                })}
+                {opts.map((opt, i) => (
+                  <button
+                    key={i}
+                    disabled={answered}
+                    onClick={() => answer(q.id, i)}
+                    className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
+                      answered
+                        ? "border-border bg-muted text-muted-foreground"
+                        : "border-border bg-background hover:border-primary hover:bg-primary/5"
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
               </div>
               {answered && (
                 <p className="mt-3 text-xs text-muted-foreground">
