@@ -217,7 +217,7 @@ function DailyQuizPage() {
               {(todayLeaderboard.data ?? []).map((r, i) => (
                 <tr key={r.user_id}>
                   <td className="px-4 py-3 font-bold">{i + 1}</td>
-                  <td className="px-4 py-3">{r.profiles?.display_name ?? "Player"}</td>
+                  <td className="px-4 py-3">{r.display_name ?? "Player"}</td>
                   <td className="px-4 py-3 text-right font-bold">{r.score}/{r.total}</td>
                   <td className="px-4 py-3 text-right text-xs text-muted-foreground">
                     {new Date(r.completed_at).toLocaleTimeString()}
