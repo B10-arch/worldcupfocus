@@ -17,6 +17,18 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 const ENTRY_FEE = 1000;
+const MAX_PICKS = 3;
+
+type LeaderboardPick = {
+  bet_id: string;
+  team_id: string;
+  team_name: string;
+  team_code: string;
+  team_flag_emoji: string;
+  fifa_rank: number | null;
+  points: number;
+  placed_at: string;
+};
 
 function Dashboard() {
   const { user } = Route.useRouteContext();
