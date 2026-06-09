@@ -147,7 +147,7 @@ function Dashboard() {
               to="/bet"
               className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:scale-105"
             >
-              {myBet.data ? "Change your team" : "Back your team"} <ArrowUpRight className="size-4" />
+              {(myPicks.data?.length ?? 0) > 0 ? "Manage your 3 picks" : "Pick your 3 teams"} <ArrowUpRight className="size-4" />
             </Link>
             <Link
               to="/bracket"
@@ -163,16 +163,17 @@ function Dashboard() {
               <p className="font-display text-2xl font-bold text-accent">Rs. {formatNPR(pot)}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400">Players</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">Picks placed</p>
               <p className="font-display text-2xl font-bold">{betCount.data ?? 0}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400">Your bet</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">Your picks</p>
               <p className="font-display text-2xl font-bold">
-                {myBet.data?.team ? `${myBet.data.team.flag_emoji}` : "—"}
+                {(myPicks.data ?? []).map((p) => p.team?.flag_emoji).join(" ") || "—"}
               </p>
             </div>
           </div>
+
         </div>
 
         {/* Daily trivia */}
