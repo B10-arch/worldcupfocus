@@ -330,9 +330,9 @@ function AdminPage() {
               className="rounded-xl border border-border bg-surface px-3 py-2 text-sm"
             >
               <option value="registered">Sort: newest signup</option>
-              <option value="placed">Sort: earliest bet</option>
+              <option value="confirmed">Sort: earliest confirmed 3-pick</option>
+              <option value="points">Sort: total points</option>
               <option value="name">Sort: name A–Z</option>
-              <option value="team">Sort: team A–Z</option>
             </select>
           </div>
 
@@ -342,8 +342,8 @@ function AdminPage() {
                 <tr>
                   <th className="px-4 py-3">Player</th>
                   <th className="px-4 py-3">Registered (NPT)</th>
-                  <th className="px-4 py-3">Backed team</th>
-                  <th className="px-4 py-3">Bet placed (NPT)</th>
+                  <th className="px-4 py-3">3 teams backed</th>
+                  <th className="px-4 py-3">Confirmed (NPT)</th>
                   <th className="px-4 py-3">Locked</th>
                   <th className="px-4 py-3">Payment</th>
                   <th className="px-4 py-3 text-right">Action</th>
@@ -363,17 +363,33 @@ function AdminPage() {
                       {formatNPTFull(r.profile_created_at)}
                     </td>
                     <td className="px-4 py-3">
-                      {r.team_name ? (
-                        <span><span className="text-lg">{r.team_flag}</span> {r.team_name} <span className="text-xs text-muted-foreground">· {r.team_group}</span></span>
+                      {r.picks.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">— no picks —</span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">— no bet —</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {r.picks.map((p) => (
+                            <span
+                              key={p.bet_id}
+                              className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
+                              title={`${p.team_name} · Group ${p.team_group} · FIFA #${p.fifa_rank}`}
+                            >
+                              <span className="text-base leading-none">{p.team_flag}</span>
+                              {p.team_name}
+                            </span>
+                          ))}
+                          {r.picks.length < 3 && (
+                            <span className="text-[10px] uppercase text-muted-foreground">
+                              {r.picks.length}/3
+                            </span>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {r.placed_at ? formatNPTFull(r.placed_at) : "—"}
+                      {r.confirmed_at ? formatNPTFull(r.confirmed_at) : "—"}
                     </td>
                     <td className="px-4 py-3">
-                      {r.bet_id ? (
+                      {r.picks.length > 0 ? (
                         isBetLocked() ? (
                           <span className="inline-flex items-center gap-1 text-xs font-bold text-magenta">
                             <Lock className="size-3" /> Locked
