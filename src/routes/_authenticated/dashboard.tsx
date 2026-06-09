@@ -60,16 +60,14 @@ function Dashboard() {
     },
   });
 
-  const myBet = useQuery({
-    queryKey: ["my-bet", user.id],
-    queryFn: async () => {
-      const { data } = await supabase
+  const myPicks = useQuery({
+    queryKey: ["my-picks", user.id],
+    queryFn: async () =>
+      (await supabase
         .from("bets")
         .select("*, team:teams(*)")
         .eq("user_id", user.id)
-        .maybeSingle();
-      return data;
-    },
+        .order("placed_at", { ascending: true })).data ?? [],
   });
 
   const betCount = useQuery({
@@ -101,20 +99,20 @@ function Dashboard() {
       const { data } = await (supabase as any)
         .from("leaderboard_entries")
         .select("*")
+        .gt("pick_count", 0)
         .order("points", { ascending: false })
-        .order("placed_at", { ascending: true })
+        .order("confirmed_at", { ascending: true })
         .limit(5);
       return (data ?? []) as Array<{
-        bet_id: string;
         user_id: string;
         points: number;
-        placed_at: string;
+        confirmed_at: string;
         display_name: string | null;
-        team_name: string | null;
-        team_flag_emoji: string | null;
+        picks: LeaderboardPick[];
       }>;
     },
   });
+
 
   const pot = (betCount.data ?? 0) * ENTRY_FEE;
 
