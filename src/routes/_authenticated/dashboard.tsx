@@ -281,19 +281,19 @@ function Dashboard() {
           <ul className="mt-6 space-y-3 text-sm">
             <li className="flex gap-3">
               <span className="font-display text-primary">01</span>
-              Flat entry of <strong>Rs. {formatNPR(ENTRY_FEE)}</strong> backs your chosen team.
+              Back <strong>exactly {MAX_PICKS} different teams</strong> at Rs. {formatNPR(ENTRY_FEE)} each — Rs. {formatNPR(ENTRY_FEE * MAX_PICKS)} total.
             </li>
             <li className="flex gap-3">
               <span className="font-display text-primary">02</span>
-              Pick the same team as someone else? You <strong>split the pot equally</strong>.
+              For each team, all backers <strong>split that team's pot equally</strong>.
             </li>
             <li className="flex gap-3">
               <span className="font-display text-primary">03</span>
-              Back a team outside FIFA top 15? Get the <strong>Underdog multiplier</strong> on points.
+              Underdog multiplier applies <strong>per pick</strong> (any team outside FIFA top 15).
             </li>
             <li className="flex gap-3">
               <span className="font-display text-primary">04</span>
-              Tied on points at the end? <strong>Earliest bet wins</strong> the tiebreaker.
+              Tied on total points? <strong>Earliest confirmed 3-pick set wins</strong>.
             </li>
           </ul>
         </div>
