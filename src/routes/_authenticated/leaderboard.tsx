@@ -8,17 +8,26 @@ export const Route = createFileRoute("/_authenticated/leaderboard")({
   component: LeaderboardPage,
 });
 
-type LeaderboardRow = {
+type Pick = {
   bet_id: string;
-  user_id: string;
   team_id: string;
+  team_name: string;
+  team_code: string;
+  team_flag_emoji: string;
+  fifa_rank: number | null;
   points: number;
   placed_at: string;
+};
+
+type LeaderboardRow = {
+  user_id: string;
   display_name: string | null;
   avatar_url: string | null;
-  team_name: string | null;
-  team_code: string | null;
-  team_flag_emoji: string | null;
+  points: number;
+  pick_count: number;
+  first_placed_at: string | null;
+  confirmed_at: string | null;
+  picks: Pick[];
 };
 
 function LeaderboardPage() {
@@ -29,8 +38,9 @@ function LeaderboardPage() {
       const { data } = await (supabase as any)
         .from("leaderboard_entries")
         .select("*")
+        .gt("pick_count", 0)
         .order("points", { ascending: false })
-        .order("placed_at", { ascending: true });
+        .order("confirmed_at", { ascending: true });
       return (data ?? []) as LeaderboardRow[];
     },
   });
@@ -40,7 +50,7 @@ function LeaderboardPage() {
       <header>
         <h1 className="font-display text-4xl font-bold">Leaderboard</h1>
         <p className="mt-2 text-muted-foreground">
-          Points update automatically as results come in. Tiebreaker: earliest bet timestamp.
+          Points update automatically as results come in. Each player backs 3 teams; total = sum of all 3 picks. Tiebreaker: earliest confirmed 3-pick set.
         </p>
       </header>
 
@@ -50,20 +60,19 @@ function LeaderboardPage() {
             <tr>
               <th className="px-4 py-3">Rank</th>
               <th className="px-4 py-3">Player</th>
-              <th className="px-4 py-3">Team</th>
-              <th className="px-4 py-3">Placed</th>
-              <th className="px-4 py-3">Payment</th>
-              <th className="px-4 py-3 text-right">Points</th>
+              <th className="px-4 py-3">3 Teams</th>
+              <th className="px-4 py-3">Confirmed</th>
+              <th className="px-4 py-3 text-right">Total points</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {data?.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No bets placed yet.</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No picks placed yet.</td></tr>
             )}
             {data?.map((row, i) => {
               const me = row.user_id === user.id;
               return (
-                <tr key={row.bet_id} className={me ? "bg-primary/5" : "hover:bg-muted/40"}>
+                <tr key={row.user_id} className={me ? "bg-primary/5" : "hover:bg-muted/40"}>
                   <td className="px-4 py-4 font-display text-lg font-bold">
                     {i === 0 ? (
                       <span className="inline-flex items-center gap-1 text-amber-pop">
@@ -76,15 +85,27 @@ function LeaderboardPage() {
                     {me && <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase text-primary-foreground">You</span>}
                   </td>
                   <td className="px-4 py-4">
-                    <span className="text-lg">{row.team_flag_emoji}</span> {row.team_name}
+                    <div className="flex flex-wrap gap-1.5">
+                      {(row.picks ?? []).map((p) => (
+                        <span
+                          key={p.bet_id}
+                          className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
+                          title={`${p.team_name} · ${p.points} pts`}
+                        >
+                          <span className="text-base leading-none">{p.team_flag_emoji}</span>
+                          <span className="font-bold">{p.team_code}</span>
+                          <span className="text-muted-foreground">{p.points}</span>
+                        </span>
+                      ))}
+                      {row.pick_count < 3 && (
+                        <span className="text-[10px] uppercase text-muted-foreground">
+                          {row.pick_count}/3 picks
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-4 text-xs text-muted-foreground">
-                    {new Date(row.placed_at).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
-                      paid
-                    </span>
+                    {row.confirmed_at ? new Date(row.confirmed_at).toLocaleString() : "—"}
                   </td>
                   <td className="px-4 py-4 text-right font-display text-lg font-bold">{row.points}</td>
                 </tr>
