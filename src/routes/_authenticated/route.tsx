@@ -9,13 +9,13 @@ export const Route = createFileRoute("/_authenticated")({
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
 
-    // Force new users to choose a team before reaching the rest of the app.
+    // Force new users to choose 3 teams before reaching the rest of the app.
     if (location.pathname !== "/bet") {
       const { count } = await supabase
         .from("bets")
         .select("*", { count: "exact", head: true })
         .eq("user_id", data.user.id);
-      if (!count || count === 0) {
+      if (!count || count < 3) {
         throw redirect({ to: "/bet" });
       }
     }

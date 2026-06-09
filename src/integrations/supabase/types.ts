@@ -49,6 +49,73 @@ export type Database = {
           },
         ]
       }
+      daily_quiz_attempts: {
+        Row: {
+          answers: Json
+          completed_at: string
+          id: string
+          quiz_date: string
+          score: number
+          total: number
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string
+          id?: string
+          quiz_date: string
+          score?: number
+          total?: number
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string
+          id?: string
+          quiz_date?: string
+          score?: number
+          total?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_quiz_attempts_quiz_date_fkey"
+            columns: ["quiz_date"]
+            isOneToOne: false
+            referencedRelation: "daily_quizzes"
+            referencedColumns: ["quiz_date"]
+          },
+        ]
+      }
+      daily_quizzes: {
+        Row: {
+          created_at: string
+          question_ids: string[]
+          quiz_date: string
+          trivia_fact_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          question_ids: string[]
+          quiz_date: string
+          trivia_fact_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          question_ids?: string[]
+          quiz_date?: string
+          trivia_fact_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_quizzes_trivia_fact_id_fkey"
+            columns: ["trivia_fact_id"]
+            isOneToOne: false
+            referencedRelation: "trivia_facts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       matches: {
         Row: {
           created_at: string
@@ -184,6 +251,7 @@ export type Database = {
           created_at: string
           explanation: string | null
           id: string
+          last_used_on: string | null
           options: Json
           question: string
           tier: Database["public"]["Enums"]["quiz_tier"]
@@ -193,6 +261,7 @@ export type Database = {
           created_at?: string
           explanation?: string | null
           id?: string
+          last_used_on?: string | null
           options: Json
           question: string
           tier: Database["public"]["Enums"]["quiz_tier"]
@@ -202,6 +271,7 @@ export type Database = {
           created_at?: string
           explanation?: string | null
           id?: string
+          last_used_on?: string | null
           options?: Json
           question?: string
           tier?: Database["public"]["Enums"]["quiz_tier"]
@@ -294,28 +364,20 @@ export type Database = {
       leaderboard_entries: {
         Row: {
           avatar_url: string | null
-          bet_id: string | null
+          confirmed_at: string | null
           display_name: string | null
-          placed_at: string | null
+          first_placed_at: string | null
+          pick_count: number | null
+          picks: Json | null
           points: number | null
-          team_code: string | null
-          team_flag_emoji: string | null
-          team_id: string | null
-          team_name: string | null
           user_id: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "bets_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {
+      current_npt_date: { Args: never; Returns: string }
+      get_daily_quiz: { Args: never; Returns: Json }
       get_total_bet_count: { Args: never; Returns: number }
       has_role: {
         Args: {
@@ -324,6 +386,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      submit_daily_quiz_attempt: { Args: { p_answers: Json }; Returns: Json }
       submit_quiz_answer: {
         Args: { p_choice: number; p_question_id: string }
         Returns: Json

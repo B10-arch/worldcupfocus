@@ -17,6 +17,18 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 const ENTRY_FEE = 1000;
+const MAX_PICKS = 3;
+
+type LeaderboardPick = {
+  bet_id: string;
+  team_id: string;
+  team_name: string;
+  team_code: string;
+  team_flag_emoji: string;
+  fifa_rank: number | null;
+  points: number;
+  placed_at: string;
+};
 
 function Dashboard() {
   const { user } = Route.useRouteContext();
@@ -48,16 +60,14 @@ function Dashboard() {
     },
   });
 
-  const myBet = useQuery({
-    queryKey: ["my-bet", user.id],
-    queryFn: async () => {
-      const { data } = await supabase
+  const myPicks = useQuery({
+    queryKey: ["my-picks", user.id],
+    queryFn: async () =>
+      (await supabase
         .from("bets")
         .select("*, team:teams(*)")
         .eq("user_id", user.id)
-        .maybeSingle();
-      return data;
-    },
+        .order("placed_at", { ascending: true })).data ?? [],
   });
 
   const betCount = useQuery({
@@ -89,20 +99,20 @@ function Dashboard() {
       const { data } = await (supabase as any)
         .from("leaderboard_entries")
         .select("*")
+        .gt("pick_count", 0)
         .order("points", { ascending: false })
-        .order("placed_at", { ascending: true })
+        .order("confirmed_at", { ascending: true })
         .limit(5);
       return (data ?? []) as Array<{
-        bet_id: string;
         user_id: string;
         points: number;
-        placed_at: string;
+        confirmed_at: string;
         display_name: string | null;
-        team_name: string | null;
-        team_flag_emoji: string | null;
+        picks: LeaderboardPick[];
       }>;
     },
   });
+
 
   const pot = (betCount.data ?? 0) * ENTRY_FEE;
 
@@ -137,7 +147,7 @@ function Dashboard() {
               to="/bet"
               className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:scale-105"
             >
-              {myBet.data ? "Change your team" : "Back your team"} <ArrowUpRight className="size-4" />
+              {(myPicks.data?.length ?? 0) > 0 ? "Manage your 3 picks" : "Pick your 3 teams"} <ArrowUpRight className="size-4" />
             </Link>
             <Link
               to="/bracket"
@@ -153,16 +163,17 @@ function Dashboard() {
               <p className="font-display text-2xl font-bold text-accent">Rs. {formatNPR(pot)}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400">Players</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">Picks placed</p>
               <p className="font-display text-2xl font-bold">{betCount.data ?? 0}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400">Your bet</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">Your picks</p>
               <p className="font-display text-2xl font-bold">
-                {myBet.data?.team ? `${myBet.data.team.flag_emoji}` : "—"}
+                {(myPicks.data ?? []).map((p) => p.team?.flag_emoji).join(" ") || "—"}
               </p>
             </div>
           </div>
+
         </div>
 
         {/* Daily trivia */}
@@ -237,7 +248,7 @@ function Dashboard() {
             )}
             {leaderboard.data?.map((row, i) => (
               <div
-                key={row.bet_id}
+                key={row.user_id}
                 className="flex items-center justify-between rounded-xl border border-border bg-background p-4"
               >
                 <div className="flex items-center gap-4">
@@ -247,14 +258,14 @@ function Dashboard() {
                   <div>
                     <p className="text-sm font-bold">{row.display_name ?? "Player"}</p>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Backed: {row.team_flag_emoji} {row.team_name}
+                      {(row.picks ?? []).map((p) => `${p.team_flag_emoji} ${p.team_code}`).join(" · ")}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
                   <span className="block font-bold">{row.points} pts</span>
                   <span className="text-[10px] uppercase tracking-tighter text-muted-foreground">
-                    {new Date(row.placed_at).toLocaleDateString()}
+                    {row.confirmed_at ? new Date(row.confirmed_at).toLocaleDateString() : "—"}
                   </span>
                 </div>
               </div>
@@ -270,19 +281,19 @@ function Dashboard() {
           <ul className="mt-6 space-y-3 text-sm">
             <li className="flex gap-3">
               <span className="font-display text-primary">01</span>
-              Flat entry of <strong>Rs. {formatNPR(ENTRY_FEE)}</strong> backs your chosen team.
+              Back <strong>exactly {MAX_PICKS} different teams</strong> at Rs. {formatNPR(ENTRY_FEE)} each — Rs. {formatNPR(ENTRY_FEE * MAX_PICKS)} total.
             </li>
             <li className="flex gap-3">
               <span className="font-display text-primary">02</span>
-              Pick the same team as someone else? You <strong>split the pot equally</strong>.
+              For each team, all backers <strong>split that team's pot equally</strong>.
             </li>
             <li className="flex gap-3">
               <span className="font-display text-primary">03</span>
-              Back a team outside FIFA top 15? Get the <strong>Underdog multiplier</strong> on points.
+              Underdog multiplier applies <strong>per pick</strong> (any team outside FIFA top 15).
             </li>
             <li className="flex gap-3">
               <span className="font-display text-primary">04</span>
-              Tied on points at the end? <strong>Earliest bet wins</strong> the tiebreaker.
+              Tied on total points? <strong>Earliest confirmed 3-pick set wins</strong>.
             </li>
           </ul>
         </div>

@@ -22,19 +22,25 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
+type Pick = {
+  bet_id: string;
+  team_id: string;
+  team_name: string | null;
+  team_flag: string | null;
+  team_group: string | null;
+  fifa_rank: number | null;
+  placed_at: string;
+  points: number;
+};
+
 type Row = {
   user_id: string;
   display_name: string;
   payment_status: string;
   profile_created_at: string;
-  bet_id: string | null;
-  team_id: string | null;
-  team_name: string | null;
-  team_flag: string | null;
-  team_group: string | null;
-  fifa_rank: number | null;
-  placed_at: string | null;
-  points: number | null;
+  picks: Pick[];
+  confirmed_at: string | null;
+  total_points: number;
 };
 
 function AdminPage() {
@@ -42,7 +48,7 @@ function AdminPage() {
   const [search, setSearch] = useState("");
   const [filterPayment, setFilterPayment] = useState<"all" | "paid" | "pending">("all");
   const [filterTeam, setFilterTeam] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"name" | "placed" | "team" | "registered">("registered");
+  const [sortBy, setSortBy] = useState<"name" | "confirmed" | "registered" | "points">("registered");
   const [tab, setTab] = useState<"registrations" | "backers">("registrations");
 
   const { data: rows = [], isLoading } = useQuery<Row[]>({
@@ -57,23 +63,37 @@ function AdminPage() {
       const bets = betsRes.data ?? [];
       const teams = teamsRes.data ?? [];
       const teamMap = new Map(teams.map((t) => [t.id, t]));
-      const betMap = new Map(bets.map((b) => [b.user_id, b]));
+      const betsByUser = new Map<string, typeof bets>();
+      for (const b of bets) {
+        const list = betsByUser.get(b.user_id) ?? [];
+        list.push(b);
+        betsByUser.set(b.user_id, list);
+      }
       return profiles.map((p) => {
-        const b = betMap.get(p.id);
-        const t = b ? teamMap.get(b.team_id) : null;
+        const userBets = (betsByUser.get(p.id) ?? []).sort((a, b) =>
+          a.placed_at.localeCompare(b.placed_at),
+        );
+        const picks: Pick[] = userBets.map((b) => {
+          const t = teamMap.get(b.team_id);
+          return {
+            bet_id: b.id,
+            team_id: b.team_id,
+            team_name: t?.name ?? null,
+            team_flag: t?.flag_emoji ?? null,
+            team_group: t?.group_name ?? null,
+            fifa_rank: t?.fifa_rank ?? null,
+            placed_at: b.placed_at,
+            points: b.points,
+          };
+        });
         return {
           user_id: p.id,
           display_name: p.display_name,
           payment_status: p.payment_status,
           profile_created_at: p.created_at,
-          bet_id: b?.id ?? null,
-          team_id: b?.team_id ?? null,
-          team_name: t?.name ?? null,
-          team_flag: t?.flag_emoji ?? null,
-          team_group: t?.group_name ?? null,
-          fifa_rank: t?.fifa_rank ?? null,
-          placed_at: b?.placed_at ?? null,
-          points: b?.points ?? null,
+          picks,
+          confirmed_at: picks.length === 3 ? picks[picks.length - 1].placed_at : null,
+          total_points: picks.reduce((s, x) => s + (x.points ?? 0), 0),
         };
       });
     },
@@ -81,9 +101,11 @@ function AdminPage() {
 
   const teamsList = useMemo(() => {
     const set = new Map<string, { name: string; flag: string }>();
-    rows.forEach((r) => {
-      if (r.team_id) set.set(r.team_id, { name: r.team_name ?? "", flag: r.team_flag ?? "" });
-    });
+    rows.forEach((r) =>
+      r.picks.forEach((p) => {
+        if (p.team_id) set.set(p.team_id, { name: p.team_name ?? "", flag: p.team_flag ?? "" });
+      }),
+    );
     return Array.from(set.entries()).sort((a, b) => a[1].name.localeCompare(b[1].name));
   }, [rows]);
 
@@ -94,16 +116,16 @@ function AdminPage() {
       out = out.filter(
         (r) =>
           r.display_name.toLowerCase().includes(q) ||
-          (r.team_name ?? "").toLowerCase().includes(q),
+          r.picks.some((p) => (p.team_name ?? "").toLowerCase().includes(q)),
       );
     }
     if (filterPayment !== "all") out = out.filter((r) => r.payment_status === filterPayment);
-    if (filterTeam !== "all") out = out.filter((r) => r.team_id === filterTeam);
+    if (filterTeam !== "all") out = out.filter((r) => r.picks.some((p) => p.team_id === filterTeam));
     out = [...out].sort((a, b) => {
       if (sortBy === "name") return a.display_name.localeCompare(b.display_name);
-      if (sortBy === "team") return (a.team_name ?? "").localeCompare(b.team_name ?? "");
-      if (sortBy === "placed")
-        return (a.placed_at ?? "").localeCompare(b.placed_at ?? "");
+      if (sortBy === "points") return b.total_points - a.total_points;
+      if (sortBy === "confirmed")
+        return (a.confirmed_at ?? "").localeCompare(b.confirmed_at ?? "");
       return b.profile_created_at.localeCompare(a.profile_created_at);
     });
     return out;
@@ -113,41 +135,48 @@ function AdminPage() {
     const total = rows.length;
     const paid = rows.filter((r) => r.payment_status === "paid").length;
     const unpaid = total - paid;
-    const collected = paid * ENTRY_FEE;
-    const withBet = rows.filter((r) => r.team_id);
-    const distinctTeams = new Set(withBet.map((r) => r.team_id)).size;
+    const totalPicks = rows.reduce((s, r) => s + r.picks.length, 0);
+    const paidPicks = rows
+      .filter((r) => r.payment_status === "paid")
+      .reduce((s, r) => s + r.picks.length, 0);
+    const collected = paidPicks * ENTRY_FEE;
+    const expected = totalPicks * ENTRY_FEE;
     const counts = new Map<string, number>();
-    withBet.forEach((r) => counts.set(r.team_id!, (counts.get(r.team_id!) ?? 0) + 1));
+    rows.forEach((r) => r.picks.forEach((p) => counts.set(p.team_id, (counts.get(p.team_id) ?? 0) + 1)));
     let topTeamId: string | null = null;
     let topCount = 0;
-    counts.forEach((c, id) => {
-      if (c > topCount) {
-        topCount = c;
-        topTeamId = id;
-      }
-    });
-    const topTeam = withBet.find((r) => r.team_id === topTeamId);
-    const underdogBackers = withBet.filter((r) => (r.fifa_rank ?? 0) > 15).length;
-    return { total, paid, unpaid, collected, distinctTeams, topTeam, topCount, underdogBackers };
+    counts.forEach((c, id) => { if (c > topCount) { topCount = c; topTeamId = id; } });
+    const topTeam = topTeamId
+      ? rows.flatMap((r) => r.picks).find((p) => p.team_id === topTeamId) ?? null
+      : null;
+    const distinctTeams = counts.size;
+    const underdogPicks = rows
+      .flatMap((r) => r.picks)
+      .filter((p) => (p.fifa_rank ?? 0) > 15).length;
+    return { total, paid, unpaid, collected, expected, totalPicks, distinctTeams, topTeam, topCount, underdogPicks };
   }, [rows]);
 
   const backers = useMemo(() => {
-    const groups = new Map<string, Row[]>();
-    rows.filter((r) => r.team_id).forEach((r) => {
-      const list = groups.get(r.team_id!) ?? [];
-      list.push(r);
-      groups.set(r.team_id!, list);
-    });
+    const groups = new Map<string, { team_name: string | null; team_flag: string | null; team_group: string | null; fifa_rank: number | null; list: Array<{ user_id: string; display_name: string; payment_status: string }> }>();
+    rows.forEach((r) =>
+      r.picks.forEach((p) => {
+        const g = groups.get(p.team_id) ?? {
+          team_name: p.team_name,
+          team_flag: p.team_flag,
+          team_group: p.team_group,
+          fifa_rank: p.fifa_rank,
+          list: [] as Array<{ user_id: string; display_name: string; payment_status: string }>,
+        };
+        g.list.push({ user_id: r.user_id, display_name: r.display_name, payment_status: r.payment_status });
+        groups.set(p.team_id, g);
+      }),
+    );
     return Array.from(groups.entries())
-      .map(([team_id, list]) => ({
+      .map(([team_id, g]) => ({
         team_id,
-        team_name: list[0]!.team_name,
-        team_flag: list[0]!.team_flag,
-        team_group: list[0]!.team_group,
-        fifa_rank: list[0]!.fifa_rank,
-        backers: list.length,
-        paid: list.filter((r) => r.payment_status === "paid").length,
-        list,
+        ...g,
+        backers: g.list.length,
+        paid: g.list.filter((u) => u.payment_status === "paid").length,
       }))
       .sort((a, b) => b.backers - a.backers);
   }, [rows]);
@@ -166,29 +195,31 @@ function AdminPage() {
     const headers = [
       "name",
       "registered_at_npt",
-      "backed_team",
-      "group",
-      "fifa_rank",
-      "bet_placed_at",
-      "team_locked",
+      "picks_count",
+      "team_1", "team_2", "team_3",
+      "confirmed_at_npt",
+      "locked",
       "payment_status",
-      "amount",
-      "points",
+      "amount_due",
+      "total_points",
     ];
     const lines = [headers.join(",")];
     filtered.forEach((r) => {
+      const names = r.picks.map((p) => p.team_name ?? "");
+      while (names.length < 3) names.push("");
       lines.push(
         [
           quote(r.display_name),
           quote(r.profile_created_at ? formatNPTFull(r.profile_created_at) : ""),
-          quote(r.team_name ?? ""),
-          quote(r.team_group ?? ""),
-          r.fifa_rank ?? "",
-          quote(r.placed_at ? formatNPTFull(r.placed_at) : ""),
-          r.team_id ? (isBetLocked() ? "true" : "false") : "",
+          r.picks.length,
+          quote(names[0]),
+          quote(names[1]),
+          quote(names[2]),
+          quote(r.confirmed_at ? formatNPTFull(r.confirmed_at) : ""),
+          r.picks.length > 0 ? (isBetLocked() ? "true" : "false") : "",
           r.payment_status,
-          ENTRY_FEE,
-          r.points ?? 0,
+          ENTRY_FEE * r.picks.length,
+          r.total_points,
         ].join(","),
       );
     });
@@ -240,8 +271,8 @@ function AdminPage() {
         />
         <SummaryCard
           icon={<ShieldCheck className="size-4" />}
-          label="Underdog backers"
-          value={summary.underdogBackers}
+          label="Underdog picks"
+          value={summary.underdogPicks}
           sub="FIFA rank > 15"
         />
       </div>
@@ -299,9 +330,9 @@ function AdminPage() {
               className="rounded-xl border border-border bg-surface px-3 py-2 text-sm"
             >
               <option value="registered">Sort: newest signup</option>
-              <option value="placed">Sort: earliest bet</option>
+              <option value="confirmed">Sort: earliest confirmed 3-pick</option>
+              <option value="points">Sort: total points</option>
               <option value="name">Sort: name A–Z</option>
-              <option value="team">Sort: team A–Z</option>
             </select>
           </div>
 
@@ -311,8 +342,8 @@ function AdminPage() {
                 <tr>
                   <th className="px-4 py-3">Player</th>
                   <th className="px-4 py-3">Registered (NPT)</th>
-                  <th className="px-4 py-3">Backed team</th>
-                  <th className="px-4 py-3">Bet placed (NPT)</th>
+                  <th className="px-4 py-3">3 teams backed</th>
+                  <th className="px-4 py-3">Confirmed (NPT)</th>
                   <th className="px-4 py-3">Locked</th>
                   <th className="px-4 py-3">Payment</th>
                   <th className="px-4 py-3 text-right">Action</th>
@@ -332,17 +363,33 @@ function AdminPage() {
                       {formatNPTFull(r.profile_created_at)}
                     </td>
                     <td className="px-4 py-3">
-                      {r.team_name ? (
-                        <span><span className="text-lg">{r.team_flag}</span> {r.team_name} <span className="text-xs text-muted-foreground">· {r.team_group}</span></span>
+                      {r.picks.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">— no picks —</span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">— no bet —</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {r.picks.map((p) => (
+                            <span
+                              key={p.bet_id}
+                              className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
+                              title={`${p.team_name} · Group ${p.team_group} · FIFA #${p.fifa_rank}`}
+                            >
+                              <span className="text-base leading-none">{p.team_flag}</span>
+                              {p.team_name}
+                            </span>
+                          ))}
+                          {r.picks.length < 3 && (
+                            <span className="text-[10px] uppercase text-muted-foreground">
+                              {r.picks.length}/3
+                            </span>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {r.placed_at ? formatNPTFull(r.placed_at) : "—"}
+                      {r.confirmed_at ? formatNPTFull(r.confirmed_at) : "—"}
                     </td>
                     <td className="px-4 py-3">
-                      {r.bet_id ? (
+                      {r.picks.length > 0 ? (
                         isBetLocked() ? (
                           <span className="inline-flex items-center gap-1 text-xs font-bold text-magenta">
                             <Lock className="size-3" /> Locked
