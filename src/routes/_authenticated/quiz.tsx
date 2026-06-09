@@ -52,14 +52,19 @@ function DailyQuizPage() {
     queryKey: ["daily-quiz-leaderboard", dailyQ.data?.quiz_date],
     enabled: !!dailyQ.data?.quiz_date,
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      const { data: attempts } = await (supabase as any)
         .from("daily_quiz_attempts")
-        .select("user_id, score, total, completed_at, profiles(display_name)")
+        .select("user_id, score, total, completed_at")
         .eq("quiz_date", dailyQ.data!.quiz_date)
         .order("score", { ascending: false })
         .order("completed_at", { ascending: true })
         .limit(10);
-      return (data ?? []) as Array<{ user_id: string; score: number; total: number; completed_at: string; profiles: { display_name: string | null } | null }>;
+      const list = (attempts ?? []) as Array<{ user_id: string; score: number; total: number; completed_at: string }>;
+      if (list.length === 0) return [];
+      const ids = Array.from(new Set(list.map((a) => a.user_id)));
+      const { data: profs } = await supabase.from("profiles").select("id, display_name").in("id", ids);
+      const nameMap = new Map((profs ?? []).map((p) => [p.id, p.display_name]));
+      return list.map((a) => ({ ...a, display_name: nameMap.get(a.user_id) ?? null }));
     },
   });
 
