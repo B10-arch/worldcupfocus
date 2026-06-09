@@ -248,7 +248,7 @@ function Dashboard() {
             )}
             {leaderboard.data?.map((row, i) => (
               <div
-                key={row.bet_id}
+                key={row.user_id}
                 className="flex items-center justify-between rounded-xl border border-border bg-background p-4"
               >
                 <div className="flex items-center gap-4">
@@ -258,14 +258,14 @@ function Dashboard() {
                   <div>
                     <p className="text-sm font-bold">{row.display_name ?? "Player"}</p>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Backed: {row.team_flag_emoji} {row.team_name}
+                      {(row.picks ?? []).map((p) => `${p.team_flag_emoji} ${p.team_code}`).join(" · ")}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
                   <span className="block font-bold">{row.points} pts</span>
                   <span className="text-[10px] uppercase tracking-tighter text-muted-foreground">
-                    {new Date(row.placed_at).toLocaleDateString()}
+                    {row.confirmed_at ? new Date(row.confirmed_at).toLocaleDateString() : "—"}
                   </span>
                 </div>
               </div>
