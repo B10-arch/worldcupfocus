@@ -195,29 +195,31 @@ function AdminPage() {
     const headers = [
       "name",
       "registered_at_npt",
-      "backed_team",
-      "group",
-      "fifa_rank",
-      "bet_placed_at",
-      "team_locked",
+      "picks_count",
+      "team_1", "team_2", "team_3",
+      "confirmed_at_npt",
+      "locked",
       "payment_status",
-      "amount",
-      "points",
+      "amount_due",
+      "total_points",
     ];
     const lines = [headers.join(",")];
     filtered.forEach((r) => {
+      const names = r.picks.map((p) => p.team_name ?? "");
+      while (names.length < 3) names.push("");
       lines.push(
         [
           quote(r.display_name),
           quote(r.profile_created_at ? formatNPTFull(r.profile_created_at) : ""),
-          quote(r.team_name ?? ""),
-          quote(r.team_group ?? ""),
-          r.fifa_rank ?? "",
-          quote(r.placed_at ? formatNPTFull(r.placed_at) : ""),
-          r.team_id ? (isBetLocked() ? "true" : "false") : "",
+          r.picks.length,
+          quote(names[0]),
+          quote(names[1]),
+          quote(names[2]),
+          quote(r.confirmed_at ? formatNPTFull(r.confirmed_at) : ""),
+          r.picks.length > 0 ? (isBetLocked() ? "true" : "false") : "",
           r.payment_status,
-          ENTRY_FEE,
-          r.points ?? 0,
+          ENTRY_FEE * r.picks.length,
+          r.total_points,
         ].join(","),
       );
     });
