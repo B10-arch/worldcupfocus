@@ -4,12 +4,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPR, BET_LOCK_UTC, isBetLocked, formatNPTFull } from "@/lib/time";
-import { saveTeamPick } from "@/lib/bets.functions";
+import { addPick, removePick, MAX_PICKS } from "@/lib/bets.functions";
 import { toast } from "sonner";
-import { Check, Lock } from "lucide-react";
+import { Check, Lock, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/bet")({
-  head: () => ({ meta: [{ title: "Choose your team · Uni-Corn Pool" }] }),
+  head: () => ({ meta: [{ title: "Choose your 3 teams · Uni-Corn Pool" }] }),
   component: BetPage,
 });
 
@@ -19,9 +19,9 @@ function BetPage() {
   const { user } = Route.useRouteContext();
   const router = useRouter();
   const qc = useQueryClient();
-  const savePick = useServerFn(saveTeamPick);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const addFn = useServerFn(addPick);
+  const removeFn = useServerFn(removePick);
+  const [busyTeamId, setBusyTeamId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const locked = isBetLocked();
 
@@ -31,56 +31,69 @@ function BetPage() {
       (await supabase.from("teams").select("*").order("group_name").order("name")).data ?? [],
   });
 
-  const myBet = useQuery({
-    queryKey: ["my-bet", user.id],
+  const myPicks = useQuery({
+    queryKey: ["my-picks", user.id],
     queryFn: async () =>
-      (await supabase.from("bets").select("*, team:teams(*)").eq("user_id", user.id).maybeSingle()).data,
+      (await supabase
+        .from("bets")
+        .select("*, team:teams(*)")
+        .eq("user_id", user.id)
+        .order("placed_at", { ascending: true })).data ?? [],
   });
 
-  const splitCount = useQuery({
-    queryKey: ["split-count", selected],
-    enabled: !!selected,
-    queryFn: async () => {
-      const { count } = await supabase
-        .from("bets")
-        .select("*", { count: "exact", head: true })
-        .eq("team_id", selected!);
-      return count ?? 0;
-    },
-  });
+  const pickedIds = new Set((myPicks.data ?? []).map((p) => p.team_id));
+  const remaining = MAX_PICKS - (myPicks.data?.length ?? 0);
 
   const filtered = (teams.data ?? []).filter((t) =>
     t.name.toLowerCase().includes(search.toLowerCase()),
   );
 
-  async function handleSave() {
-    if (!selected || locked) return;
-    setSaving(true);
+  async function handleAdd(teamId: string) {
+    if (locked || pickedIds.has(teamId) || remaining <= 0) return;
+    setBusyTeamId(teamId);
     try {
-      await savePick({ data: { teamId: selected } });
-      toast.success(myBet.data ? "Team updated!" : "Team locked in! Pay Rs. 1,000 to confirm.");
-      await qc.invalidateQueries();
-      router.navigate({ to: "/dashboard" });
+      await addFn({ data: { teamId } });
+      await qc.invalidateQueries({ queryKey: ["my-picks", user.id] });
+      const newCount = (myPicks.data?.length ?? 0) + 1;
+      if (newCount >= MAX_PICKS) {
+        toast.success(`All ${MAX_PICKS} teams locked in! Pay Rs. ${formatNPR(ENTRY_FEE * MAX_PICKS)} to confirm.`);
+        router.navigate({ to: "/dashboard" });
+      } else {
+        toast.success(`Pick saved. ${MAX_PICKS - newCount} more to go.`);
+      }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save your pick");
+      toast.error(err instanceof Error ? err.message : "Could not save pick");
     } finally {
-      setSaving(false);
+      setBusyTeamId(null);
+    }
+  }
+
+  async function handleRemove(teamId: string) {
+    if (locked) return;
+    setBusyTeamId(teamId);
+    try {
+      await removeFn({ data: { teamId } });
+      await qc.invalidateQueries({ queryKey: ["my-picks", user.id] });
+      toast.message("Pick removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not remove pick");
+    } finally {
+      setBusyTeamId(null);
     }
   }
 
   const lockNotice = locked
-    ? `Team selection locked at ${formatNPTFull(BET_LOCK_UTC)} — bets are final once the tournament begins.`
-    : `You can change your team until ${formatNPTFull(BET_LOCK_UTC)}.`;
+    ? `Picks locked at ${formatNPTFull(BET_LOCK_UTC)} — your ${MAX_PICKS} teams are final.`
+    : `You can change your ${MAX_PICKS} teams until ${formatNPTFull(BET_LOCK_UTC)}.`;
 
   return (
     <div className="space-y-8">
       <header>
         <h1 className="font-display text-4xl font-bold">
-          {myBet.data ? "Your team" : "Choose your team"}
+          Choose your {MAX_PICKS} teams
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Pick one of 48 nations. Flat entry of Rs. {formatNPR(ENTRY_FEE)}. If multiple players pick the
-          same team, you split the pot equally.
+          Back exactly {MAX_PICKS} distinct nations. Rs. {formatNPR(ENTRY_FEE)} per team — Rs. {formatNPR(ENTRY_FEE * MAX_PICKS)} total. Each pick earns points independently; share the per-team pot with anyone else backing the same nation.
         </p>
       </header>
 
@@ -94,18 +107,41 @@ function BetPage() {
         <p>{lockNotice}</p>
       </div>
 
-      {myBet.data && (
-        <div className="rounded-2xl border border-border bg-surface p-4 text-sm shadow-card">
-          Currently backing:{" "}
-          <strong>
-            {myBet.data.team?.flag_emoji} {myBet.data.team?.name}
-          </strong>
-          {" · "}
-          <span className="text-muted-foreground">
-            Submitted {new Date(myBet.data.placed_at).toLocaleString()}
-          </span>
+      {/* Current picks */}
+      <div className="rounded-2xl border border-border bg-surface p-4 shadow-card">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Your picks ({myPicks.data?.length ?? 0}/{MAX_PICKS})
+          </p>
+          {remaining > 0 && !locked && (
+            <span className="text-xs text-primary">Pick {remaining} more</span>
+          )}
         </div>
-      )}
+        <div className="flex flex-wrap gap-2">
+          {(myPicks.data ?? []).map((p) => (
+            <span
+              key={p.id}
+              className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-bold"
+            >
+              <span className="text-lg">{p.team?.flag_emoji}</span>
+              {p.team?.name}
+              {!locked && (
+                <button
+                  onClick={() => handleRemove(p.team_id)}
+                  disabled={busyTeamId === p.team_id}
+                  className="ml-1 rounded-full p-0.5 hover:bg-magenta/10"
+                  title="Remove pick"
+                >
+                  <X className="size-3" />
+                </button>
+              )}
+            </span>
+          ))}
+          {(myPicks.data?.length ?? 0) === 0 && (
+            <span className="text-sm text-muted-foreground">No picks yet — choose {MAX_PICKS} teams below.</span>
+          )}
+        </div>
+      </div>
 
       <input
         value={search}
@@ -116,20 +152,28 @@ function BetPage() {
 
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {filtered.map((t) => {
-          const isPicked = selected === t.id;
-          const isCurrent = myBet.data?.team_id === t.id;
+          const isPicked = pickedIds.has(t.id);
           const underdog = t.fifa_rank != null && t.fifa_rank > 15;
+          const disabled = locked || (!isPicked && remaining <= 0);
           return (
             <button
               key={t.id}
-              onClick={() => !locked && setSelected(t.id)}
-              disabled={locked}
-              title={locked ? lockNotice : undefined}
+              onClick={() => (isPicked ? handleRemove(t.id) : handleAdd(t.id))}
+              disabled={disabled || busyTeamId === t.id}
+              title={
+                locked
+                  ? lockNotice
+                  : isPicked
+                    ? "Click to remove"
+                    : remaining <= 0
+                      ? "You already have 3 picks. Remove one first."
+                      : "Click to add"
+              }
               className={`group flex items-center gap-3 rounded-2xl border p-4 text-left transition ${
                 isPicked
-                  ? "border-primary bg-primary/5 ring-2 ring-primary"
+                  ? "border-pitch bg-pitch/5 ring-2 ring-pitch"
                   : "border-border bg-surface hover:border-primary/50"
-              } ${locked ? "cursor-not-allowed opacity-60 hover:border-border" : ""}`}
+              } ${disabled && !isPicked ? "cursor-not-allowed opacity-50 hover:border-border" : ""}`}
             >
               <div className="grid size-12 place-items-center rounded-xl bg-secondary text-3xl">{t.flag_emoji}</div>
               <div className="flex-1">
@@ -143,37 +187,11 @@ function BetPage() {
                   )}
                 </p>
               </div>
-              {isCurrent && <Check className="size-4 text-pitch" />}
+              {isPicked && <Check className="size-5 text-pitch" />}
             </button>
           );
         })}
       </div>
-
-      {selected && !locked && (
-        <div className="sticky bottom-4 z-20 mx-auto max-w-2xl rounded-2xl border border-border bg-night p-4 text-white shadow-2xl">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-widest text-slate-400">Selected</p>
-              <p className="font-display text-lg font-bold">
-                {teams.data?.find((t) => t.id === selected)?.flag_emoji}{" "}
-                {teams.data?.find((t) => t.id === selected)?.name}
-              </p>
-              {splitCount.data != null && splitCount.data > 0 && (
-                <p className="text-xs text-amber-pop">
-                  {splitCount.data} other player{splitCount.data === 1 ? "" : "s"} backing this team — pot splits.
-                </p>
-              )}
-            </div>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground transition hover:scale-105 disabled:opacity-50"
-            >
-              {saving ? "Saving…" : myBet.data ? "Update team" : "Lock in team"}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
