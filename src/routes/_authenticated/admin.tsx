@@ -271,8 +271,8 @@ function AdminPage() {
         />
         <SummaryCard
           icon={<ShieldCheck className="size-4" />}
-          label="Underdog backers"
-          value={summary.underdogBackers}
+          label="Underdog picks"
+          value={summary.underdogPicks}
           sub="FIFA rank > 15"
         />
       </div>
