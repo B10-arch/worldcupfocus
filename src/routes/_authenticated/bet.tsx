@@ -125,7 +125,7 @@ function BetPage() {
             Your picks ({myPicks.data?.length ?? 0}/{MAX_PICKS})
           </p>
           {remaining > 0 && !locked && (
-            <span className="text-xs text-primary">Pick {remaining} more</span>
+            <span className="text-xs text-primary">Add up to {remaining} more (optional)</span>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
