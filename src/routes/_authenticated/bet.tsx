@@ -177,7 +177,7 @@ function BetPage() {
                   : isPicked
                     ? "Click to remove"
                     : remaining <= 0
-                      ? "You already have 3 picks. Remove one first."
+                      ? `You already have ${MAX_PICKS} picks (the max). Remove one to swap.`
                       : "Click to add"
               }
               className={`group flex items-center gap-3 rounded-2xl border p-4 text-left transition ${
