@@ -69,11 +69,26 @@ function DailyQuizPage() {
   });
 
   const alreadyAttempted = !!dailyQ.data?.attempt;
+  const [reveals, setReveals] = useState<Record<string, { correct_index: number; explanation: string | null }>>({});
   const correctMap = useMemo(() => {
     const m = new Map<string, number>();
     if (result) for (const b of result.breakdown) m.set(b.question_id, b.correct_index);
+    for (const [qid, r] of Object.entries(reveals)) m.set(qid, r.correct_index);
     return m;
-  }, [result]);
+  }, [result, reveals]);
+
+  async function pickAnswer(qid: string, i: number) {
+    if (alreadyAttempted || submitting) return;
+    if (reveals[qid] != null) return; // locked once revealed
+    setAnswers((a) => ({ ...a, [qid]: i }));
+    try {
+      const { data, error } = await (supabase as any).rpc("reveal_daily_quiz_answer", { p_question_id: qid });
+      if (error) throw error;
+      setReveals((r) => ({ ...r, [qid]: { correct_index: data.correct_index, explanation: data.explanation } }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not check answer");
+    }
+  }
 
   async function submit() {
     if (!dailyQ.data) return;
