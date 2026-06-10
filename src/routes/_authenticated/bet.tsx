@@ -55,12 +55,12 @@ function BetPage() {
       await addFn({ data: { teamId } });
       await qc.invalidateQueries({ queryKey: ["my-picks", user.id] });
       const newCount = (myPicks.data?.length ?? 0) + 1;
-      if (newCount >= MAX_PICKS) {
-        toast.success(`All ${MAX_PICKS} teams locked in! Pay Rs. ${formatNPR(ENTRY_FEE * MAX_PICKS)} to confirm.`);
-        router.navigate({ to: "/dashboard" });
-      } else {
-        toast.success(`Pick saved. ${MAX_PICKS - newCount} more to go.`);
-      }
+      const more = MAX_PICKS - newCount;
+      toast.success(
+        `Pick saved (${newCount}/${MAX_PICKS}). Rs. ${formatNPR(ENTRY_FEE * newCount)} total.${
+          more > 0 ? ` You can add up to ${more} more.` : ""
+        }`,
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save pick");
     } finally {
