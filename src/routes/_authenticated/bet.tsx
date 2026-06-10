@@ -82,19 +82,30 @@ function BetPage() {
     }
   }
 
+  const picksCount = myPicks.data?.length ?? 0;
   const lockNotice = locked
-    ? `Picks locked at ${formatNPTFull(BET_LOCK_UTC)} — your ${MAX_PICKS} teams are final.`
-    : `You can change your ${MAX_PICKS} teams until ${formatNPTFull(BET_LOCK_UTC)}.`;
+    ? `Picks locked at ${formatNPTFull(BET_LOCK_UTC)} — your teams are final.`
+    : `You can back 1 to ${MAX_PICKS} teams and change them until ${formatNPTFull(BET_LOCK_UTC)}.`;
 
   return (
     <div className="space-y-8">
       <header>
         <h1 className="font-display text-4xl font-bold">
-          Choose your {MAX_PICKS} teams
+          Choose your teams
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Back exactly {MAX_PICKS} distinct nations. Rs. {formatNPR(ENTRY_FEE)} per team — Rs. {formatNPR(ENTRY_FEE * MAX_PICKS)} total. Each pick earns points independently; share the per-team pot with anyone else backing the same nation.
+          Back between 1 and {MAX_PICKS} distinct nations — your call. Rs. {formatNPR(ENTRY_FEE)} per team (so Rs. {formatNPR(ENTRY_FEE)}, {formatNPR(ENTRY_FEE * 2)}, or {formatNPR(ENTRY_FEE * MAX_PICKS)} total). Each pick earns points independently; share the per-team pot with anyone else backing the same nation.
         </p>
+        {picksCount >= 1 && !locked && (
+          <div className="mt-4">
+            <button
+              onClick={() => router.navigate({ to: "/dashboard" })}
+              className="inline-flex items-center gap-2 rounded-full bg-pitch px-4 py-2 text-sm font-bold text-white transition hover:scale-105"
+            >
+              Go to dashboard ({picksCount} pick{picksCount === 1 ? "" : "s"} · Rs. {formatNPR(ENTRY_FEE * picksCount)})
+            </button>
+          </div>
+        )}
       </header>
 
       <div
