@@ -386,6 +386,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      reveal_daily_quiz_answer: {
+        Args: { p_question_id: string }
+        Returns: Json
+      }
       submit_daily_quiz_attempt: { Args: { p_answers: Json }; Returns: Json }
       submit_quiz_answer: {
         Args: { p_choice: number; p_question_id: string }
