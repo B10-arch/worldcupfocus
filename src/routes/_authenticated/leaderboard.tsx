@@ -59,25 +59,20 @@ function LeaderboardPage() {
             <tr>
               <th className="px-4 py-3">Rank</th>
               <th className="px-4 py-3">Player</th>
-              <th className="px-4 py-3">3 Teams</th>
+              <th className="px-4 py-3">Teams</th>
               <th className="px-4 py-3">Confirmed</th>
-              <th className="px-4 py-3 text-right">Total points</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {data?.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No picks placed yet.</td></tr>
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">No picks placed yet.</td></tr>
             )}
             {data?.map((row, i) => {
               const me = row.user_id === user.id;
               return (
                 <tr key={row.user_id} className={me ? "bg-primary/5" : "hover:bg-muted/40"}>
                   <td className="px-4 py-4 font-display text-lg font-bold">
-                    {i === 0 ? (
-                      <span className="inline-flex items-center gap-1 text-amber-pop">
-                        <Crown className="size-4" /> 01
-                      </span>
-                    ) : String(i + 1).padStart(2, "0")}
+                    {String(i + 1).padStart(2, "0")}
                   </td>
                   <td className="px-4 py-4 font-bold">
                     {row.display_name ?? "Player"}
@@ -106,7 +101,6 @@ function LeaderboardPage() {
                   <td className="px-4 py-4 text-xs text-muted-foreground">
                     {row.confirmed_at ? new Date(row.confirmed_at).toLocaleString() : "—"}
                   </td>
-                  <td className="px-4 py-4 text-right font-display text-lg font-bold">{row.points}</td>
                 </tr>
               );
             })}
