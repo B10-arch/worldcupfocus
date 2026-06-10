@@ -342,7 +342,7 @@ function AdminPage() {
                 <tr>
                   <th className="px-4 py-3">Player</th>
                   <th className="px-4 py-3">Registered (NPT)</th>
-                  <th className="px-4 py-3">3 teams backed</th>
+                  <th className="px-4 py-3">Teams backed</th>
                   <th className="px-4 py-3">Confirmed (NPT)</th>
                   <th className="px-4 py-3">Locked</th>
                   <th className="px-4 py-3">Payment</th>
