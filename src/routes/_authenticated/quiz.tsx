@@ -177,8 +177,8 @@ function DailyQuizPage() {
                   return (
                     <button
                       key={i}
-                      disabled={alreadyAttempted || submitting}
-                      onClick={() => setAnswers((a) => ({ ...a, [q.id]: i }))}
+                      disabled={alreadyAttempted || submitting || reveals[q.id] != null}
+                      onClick={() => pickAnswer(q.id, i)}
                       className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
                         showCorrect
                           ? "border-pitch bg-pitch/10 text-pitch"
@@ -196,6 +196,11 @@ function DailyQuizPage() {
                   );
                 })}
               </div>
+              {reveals[q.id]?.explanation && (
+                <p className="mt-3 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                  {reveals[q.id].explanation}
+                </p>
+              )}
             </div>
           );
         })}
