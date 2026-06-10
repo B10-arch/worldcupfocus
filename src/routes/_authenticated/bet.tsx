@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Check, Lock, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/bet")({
-  head: () => ({ meta: [{ title: "Choose your 3 teams · Focus World Cup Pool" }] }),
+  head: () => ({ meta: [{ title: "Choose your teams · Focus World Cup Pool" }] }),
   component: BetPage,
 });
 
