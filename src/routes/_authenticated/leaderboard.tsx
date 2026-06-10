@@ -49,7 +49,7 @@ function LeaderboardPage() {
       <header>
         <h1 className="font-display text-4xl font-bold">Leaderboard</h1>
         <p className="mt-2 text-muted-foreground">
-          Points update automatically as results come in. Each player backs 1–3 teams; total = sum of all picks. Tiebreaker: earliest confirmed pick.
+          Points update automatically as results come in. Each player backs 1–3 teams.
         </p>
       </header>
 
