@@ -9,7 +9,7 @@ import { ShieldCheck, Users, Wallet, Trophy, Search, Download, Lock, Unlock } fr
 const ENTRY_FEE = 1000;
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Admin · Uni-Corn Pool" }] }),
+  head: () => ({ meta: [{ title: "Admin · Focus World Cup Pool" }] }),
   beforeLoad: async ({ context }) => {
     const { data } = await supabase
       .from("user_roles")
@@ -342,7 +342,7 @@ function AdminPage() {
                 <tr>
                   <th className="px-4 py-3">Player</th>
                   <th className="px-4 py-3">Registered (NPT)</th>
-                  <th className="px-4 py-3">3 teams backed</th>
+                  <th className="px-4 py-3">Teams backed</th>
                   <th className="px-4 py-3">Confirmed (NPT)</th>
                   <th className="px-4 py-3">Locked</th>
                   <th className="px-4 py-3">Payment</th>

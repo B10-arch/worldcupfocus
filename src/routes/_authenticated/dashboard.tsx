@@ -12,7 +12,7 @@ import {
 import { Trophy, Sparkles, ArrowUpRight, Flame, CalendarClock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard · Uni-Corn Pool" }] }),
+  head: () => ({ meta: [{ title: "Dashboard · Focus World Cup Pool" }] }),
   component: Dashboard,
 });
 
@@ -147,7 +147,7 @@ function Dashboard() {
               to="/bet"
               className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:scale-105"
             >
-              {(myPicks.data?.length ?? 0) > 0 ? "Manage your 3 picks" : "Pick your 3 teams"} <ArrowUpRight className="size-4" />
+              {(myPicks.data?.length ?? 0) > 0 ? "Manage your picks" : "Pick your teams"} <ArrowUpRight className="size-4" />
             </Link>
             <Link
               to="/bracket"

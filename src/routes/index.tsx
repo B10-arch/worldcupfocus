@@ -5,13 +5,13 @@ import trophyHero from "@/assets/trophy-hero.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Uni-Corn World Cup 2026 Pool" },
+      { title: "Focus World Cup 2026 Pool" },
       {
         name: "description",
         content:
-          "The internal Uni-Corn betting pool for the 2026 FIFA World Cup. Back your team, climb the leaderboard, win the pot.",
+          "The internal Focus betting pool for the 2026 FIFA World Cup. Back your team, climb the leaderboard, win the pot.",
       },
-      { property: "og:title", content: "Uni-Corn World Cup 2026 Pool" },
+      { property: "og:title", content: "Focus World Cup 2026 Pool" },
       {
         property: "og:description",
         content: "Back your team for Rs. 1,000. Split the prize. NPT match schedule, live bracket, daily trivia.",
@@ -33,7 +33,7 @@ function Landing() {
             >
               <Trophy className="size-5" />
             </div>
-            <span className="font-display text-xl font-bold">Uni-Corn Pool</span>
+            <span className="font-display text-xl font-bold">Focus World Cup Pool</span>
           </div>
           <Link
             to="/auth"
@@ -70,7 +70,7 @@ function Landing() {
               </span>
             </h1>
             <p className="max-w-lg text-lg text-slate-300">
-              The internal Uni-Corn World Cup 2026 betting pool. Flat Rs. 1,000 entry. If two people pick the same
+              The internal Focus World Cup 2026 betting pool. Flat Rs. 1,000 entry. If two people pick the same
               champion, you split the pot — no drama. NPT-converted matches, daily trivia, live bracket.
             </p>
             <div className="flex flex-wrap gap-3">

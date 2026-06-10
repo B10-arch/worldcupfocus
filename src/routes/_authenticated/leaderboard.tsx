@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Crown } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
-  head: () => ({ meta: [{ title: "Leaderboard · Uni-Corn Pool" }] }),
+  head: () => ({ meta: [{ title: "Leaderboard · Focus World Cup Pool" }] }),
   component: LeaderboardPage,
 });
 
@@ -50,7 +50,7 @@ function LeaderboardPage() {
       <header>
         <h1 className="font-display text-4xl font-bold">Leaderboard</h1>
         <p className="mt-2 text-muted-foreground">
-          Points update automatically as results come in. Each player backs 3 teams; total = sum of all 3 picks. Tiebreaker: earliest confirmed 3-pick set.
+          Points update automatically as results come in. Each player backs 1–3 teams; total = sum of all picks. Tiebreaker: earliest confirmed pick.
         </p>
       </header>
 

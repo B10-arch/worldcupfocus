@@ -5,7 +5,7 @@ import { formatNPT, formatNPTDate } from "@/lib/time";
 import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/teams/$code")({
-  head: ({ params }) => ({ meta: [{ title: `${params.code} · Uni-Corn Pool` }] }),
+  head: ({ params }) => ({ meta: [{ title: `${params.code} · Focus World Cup Pool` }] }),
   component: TeamDetail,
 });
 

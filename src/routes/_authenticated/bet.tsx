@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Check, Lock, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/bet")({
-  head: () => ({ meta: [{ title: "Choose your 3 teams · Uni-Corn Pool" }] }),
+  head: () => ({ meta: [{ title: "Choose your teams · Focus World Cup Pool" }] }),
   component: BetPage,
 });
 
@@ -55,12 +55,12 @@ function BetPage() {
       await addFn({ data: { teamId } });
       await qc.invalidateQueries({ queryKey: ["my-picks", user.id] });
       const newCount = (myPicks.data?.length ?? 0) + 1;
-      if (newCount >= MAX_PICKS) {
-        toast.success(`All ${MAX_PICKS} teams locked in! Pay Rs. ${formatNPR(ENTRY_FEE * MAX_PICKS)} to confirm.`);
-        router.navigate({ to: "/dashboard" });
-      } else {
-        toast.success(`Pick saved. ${MAX_PICKS - newCount} more to go.`);
-      }
+      const more = MAX_PICKS - newCount;
+      toast.success(
+        `Pick saved (${newCount}/${MAX_PICKS}). Rs. ${formatNPR(ENTRY_FEE * newCount)} total.${
+          more > 0 ? ` You can add up to ${more} more.` : ""
+        }`,
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save pick");
     } finally {
@@ -82,19 +82,30 @@ function BetPage() {
     }
   }
 
+  const picksCount = myPicks.data?.length ?? 0;
   const lockNotice = locked
-    ? `Picks locked at ${formatNPTFull(BET_LOCK_UTC)} — your ${MAX_PICKS} teams are final.`
-    : `You can change your ${MAX_PICKS} teams until ${formatNPTFull(BET_LOCK_UTC)}.`;
+    ? `Picks locked at ${formatNPTFull(BET_LOCK_UTC)} — your teams are final.`
+    : `You can back 1 to ${MAX_PICKS} teams and change them until ${formatNPTFull(BET_LOCK_UTC)}.`;
 
   return (
     <div className="space-y-8">
       <header>
         <h1 className="font-display text-4xl font-bold">
-          Choose your {MAX_PICKS} teams
+          Choose your teams
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Back exactly {MAX_PICKS} distinct nations. Rs. {formatNPR(ENTRY_FEE)} per team — Rs. {formatNPR(ENTRY_FEE * MAX_PICKS)} total. Each pick earns points independently; share the per-team pot with anyone else backing the same nation.
+          Back between 1 and {MAX_PICKS} distinct nations — your call. Rs. {formatNPR(ENTRY_FEE)} per team (so Rs. {formatNPR(ENTRY_FEE)}, {formatNPR(ENTRY_FEE * 2)}, or {formatNPR(ENTRY_FEE * MAX_PICKS)} total). Each pick earns points independently; share the per-team pot with anyone else backing the same nation.
         </p>
+        {picksCount >= 1 && !locked && (
+          <div className="mt-4">
+            <button
+              onClick={() => router.navigate({ to: "/dashboard" })}
+              className="inline-flex items-center gap-2 rounded-full bg-pitch px-4 py-2 text-sm font-bold text-white transition hover:scale-105"
+            >
+              Go to dashboard ({picksCount} pick{picksCount === 1 ? "" : "s"} · Rs. {formatNPR(ENTRY_FEE * picksCount)})
+            </button>
+          </div>
+        )}
       </header>
 
       <div
@@ -114,7 +125,7 @@ function BetPage() {
             Your picks ({myPicks.data?.length ?? 0}/{MAX_PICKS})
           </p>
           {remaining > 0 && !locked && (
-            <span className="text-xs text-primary">Pick {remaining} more</span>
+            <span className="text-xs text-primary">Add up to {remaining} more (optional)</span>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -138,7 +149,7 @@ function BetPage() {
             </span>
           ))}
           {(myPicks.data?.length ?? 0) === 0 && (
-            <span className="text-sm text-muted-foreground">No picks yet — choose {MAX_PICKS} teams below.</span>
+            <span className="text-sm text-muted-foreground">No picks yet — choose at least 1 team (up to {MAX_PICKS}) below.</span>
           )}
         </div>
       </div>
@@ -166,7 +177,7 @@ function BetPage() {
                   : isPicked
                     ? "Click to remove"
                     : remaining <= 0
-                      ? "You already have 3 picks. Remove one first."
+                      ? `You already have ${MAX_PICKS} picks (the max). Remove one to swap.`
                       : "Click to add"
               }
               className={`group flex items-center gap-3 rounded-2xl border p-4 text-left transition ${

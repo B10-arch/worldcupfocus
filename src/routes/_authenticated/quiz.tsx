@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { CalendarDays, Flame, Sparkles, Trophy } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/quiz")({
-  head: () => ({ meta: [{ title: "Daily Quiz · Uni-Corn Pool" }] }),
+  head: () => ({ meta: [{ title: "Daily Quiz · Focus World Cup Pool" }] }),
   component: DailyQuizPage,
 });
 

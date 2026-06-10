@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatNPT, formatNPTDate, isTournamentStarted } from "@/lib/time";
 
 export const Route = createFileRoute("/_authenticated/matches")({
-  head: () => ({ meta: [{ title: "Matches · Uni-Corn Pool" }] }),
+  head: () => ({ meta: [{ title: "Matches · Focus World Cup Pool" }] }),
   component: MatchesPage,
 });
 
