@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/teams")({
-  head: () => ({ meta: [{ title: "Teams & Groups · Uni-Corn Pool" }] }),
+  head: () => ({ meta: [{ title: "Teams & Groups · Focus World Cup Pool" }] }),
   component: TeamsPage,
 });
 

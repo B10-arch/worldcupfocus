@@ -43,7 +43,7 @@ export function AppShell({ children, displayName, isAdmin }: { children: ReactNo
               <Trophy className="size-5" />
             </div>
             <span className="font-display text-xl font-bold tracking-tight">
-              Uni-Corn <span className="text-primary">Pool</span>
+              Focus <span className="text-primary">Pool</span>
             </span>
           </Link>
 
@@ -119,7 +119,7 @@ export function AppShell({ children, displayName, isAdmin }: { children: ReactNo
 
       <footer className="mt-20 border-t border-border bg-surface py-8 text-center">
         <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          Uni-Corn World Cup 2026 Pool · Internal use only · NPT
+          Focus World Cup 2026 Pool · Internal use only · NPT
         </p>
       </footer>
     </div>

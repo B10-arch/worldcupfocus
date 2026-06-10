@@ -12,7 +12,7 @@ import {
 import { Trophy, Sparkles, ArrowUpRight, Flame, CalendarClock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard · Uni-Corn Pool" }] }),
+  head: () => ({ meta: [{ title: "Dashboard · Focus World Cup Pool" }] }),
   component: Dashboard,
 });
 

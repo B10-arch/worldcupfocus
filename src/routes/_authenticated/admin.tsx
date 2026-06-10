@@ -9,7 +9,7 @@ import { ShieldCheck, Users, Wallet, Trophy, Search, Download, Lock, Unlock } fr
 const ENTRY_FEE = 1000;
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Admin · Uni-Corn Pool" }] }),
+  head: () => ({ meta: [{ title: "Admin · Focus World Cup Pool" }] }),
   beforeLoad: async ({ context }) => {
     const { data } = await supabase
       .from("user_roles")

@@ -9,8 +9,8 @@ import trophyHero from "@/assets/trophy-hero.jpg";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in · Uni-Corn World Cup Pool" },
-      { name: "description", content: "Sign in to back your team in the Uni-Corn World Cup 2026 friendly betting pool." },
+      { title: "Sign in · Focus World Cup Pool" },
+      { name: "description", content: "Sign in to back your team in the Focus World Cup 2026 friendly betting pool." },
     ],
   }),
   ssr: false,
@@ -81,7 +81,7 @@ function AuthPage() {
           >
             <Trophy className="size-5" />
           </div>
-          <span className="font-display text-xl font-bold">Uni-Corn Pool</span>
+          <span className="font-display text-xl font-bold">Focus World Cup Pool</span>
         </div>
         <img
           src={trophyHero}

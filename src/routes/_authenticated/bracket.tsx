@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatNPTDate, formatNPT } from "@/lib/time";
 
 export const Route = createFileRoute("/_authenticated/bracket")({
-  head: () => ({ meta: [{ title: "Bracket · Uni-Corn Pool" }] }),
+  head: () => ({ meta: [{ title: "Bracket · Focus World Cup Pool" }] }),
   component: BracketPage,
 });
 
