@@ -149,7 +149,7 @@ function BetPage() {
             </span>
           ))}
           {(myPicks.data?.length ?? 0) === 0 && (
-            <span className="text-sm text-muted-foreground">No picks yet — choose {MAX_PICKS} teams below.</span>
+            <span className="text-sm text-muted-foreground">No picks yet — choose at least 1 team (up to {MAX_PICKS}) below.</span>
           )}
         </div>
       </div>
