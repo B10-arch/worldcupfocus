@@ -33,6 +33,7 @@ function LeaderboardPage() {
   const { user } = Route.useRouteContext();
   const { data } = useQuery({
     queryKey: ["leaderboard", "full"],
+    refetchInterval: 60_000, // live: standings update as results come in
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("leaderboard_entries")

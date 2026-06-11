@@ -35,6 +35,7 @@ function Dashboard() {
 
   const matches = useQuery({
     queryKey: ["matches", "upcoming"],
+    refetchInterval: 60_000, // live: pull fresh scores/status every 60s
     queryFn: async () => {
       const { data } = await supabase
         .from("matches")
@@ -100,6 +101,7 @@ function Dashboard() {
 
   const leaderboard = useQuery({
     queryKey: ["leaderboard", "top"],
+    refetchInterval: 60_000, // live: standings update as results come in
     queryFn: async () => {
       const { data } = await (supabase as any)
         .from("leaderboard_entries")
