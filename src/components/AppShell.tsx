@@ -7,7 +7,6 @@ import {
   GitFork,
   Brain,
   Medal,
-  Tv,
   LogOut,
   ShieldCheck,
 } from "lucide-react";
@@ -22,7 +21,6 @@ const navItems = [
   { to: "/bracket", label: "Bracket", icon: GitFork },
   { to: "/quiz", label: "Trivia", icon: Brain },
   { to: "/leaderboard", label: "Leaderboard", icon: Medal },
-  { to: "/watch", label: "Watch", icon: Tv },
 ] as const;
 
 export function AppShell({

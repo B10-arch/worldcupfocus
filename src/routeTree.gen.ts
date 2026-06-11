@@ -14,7 +14,6 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedWatchRouteImport } from './routes/_authenticated/watch'
 import { Route as AuthenticatedTeamsRouteImport } from './routes/_authenticated/teams'
 import { Route as AuthenticatedQuizRouteImport } from './routes/_authenticated/quiz'
 import { Route as AuthenticatedMatchesRouteImport } from './routes/_authenticated/matches'
@@ -48,11 +47,6 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedWatchRoute = AuthenticatedWatchRouteImport.update({
-  id: '/watch',
-  path: '/watch',
-  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedTeamsRoute = AuthenticatedTeamsRouteImport.update({
   id: '/teams',
@@ -114,7 +108,6 @@ export interface FileRoutesByFullPath {
   '/matches': typeof AuthenticatedMatchesRoute
   '/quiz': typeof AuthenticatedQuizRoute
   '/teams': typeof AuthenticatedTeamsRouteWithChildren
-  '/watch': typeof AuthenticatedWatchRoute
   '/teams/$code': typeof AuthenticatedTeamsCodeRoute
 }
 export interface FileRoutesByTo {
@@ -130,7 +123,6 @@ export interface FileRoutesByTo {
   '/matches': typeof AuthenticatedMatchesRoute
   '/quiz': typeof AuthenticatedQuizRoute
   '/teams': typeof AuthenticatedTeamsRouteWithChildren
-  '/watch': typeof AuthenticatedWatchRoute
   '/teams/$code': typeof AuthenticatedTeamsCodeRoute
 }
 export interface FileRoutesById {
@@ -148,7 +140,6 @@ export interface FileRoutesById {
   '/_authenticated/matches': typeof AuthenticatedMatchesRoute
   '/_authenticated/quiz': typeof AuthenticatedQuizRoute
   '/_authenticated/teams': typeof AuthenticatedTeamsRouteWithChildren
-  '/_authenticated/watch': typeof AuthenticatedWatchRoute
   '/_authenticated/teams/$code': typeof AuthenticatedTeamsCodeRoute
 }
 export interface FileRouteTypes {
@@ -166,7 +157,6 @@ export interface FileRouteTypes {
     | '/matches'
     | '/quiz'
     | '/teams'
-    | '/watch'
     | '/teams/$code'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -182,7 +172,6 @@ export interface FileRouteTypes {
     | '/matches'
     | '/quiz'
     | '/teams'
-    | '/watch'
     | '/teams/$code'
   id:
     | '__root__'
@@ -199,7 +188,6 @@ export interface FileRouteTypes {
     | '/_authenticated/matches'
     | '/_authenticated/quiz'
     | '/_authenticated/teams'
-    | '/_authenticated/watch'
     | '/_authenticated/teams/$code'
   fileRoutesById: FileRoutesById
 }
@@ -247,13 +235,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/watch': {
-      id: '/_authenticated/watch'
-      path: '/watch'
-      fullPath: '/watch'
-      preLoaderRoute: typeof AuthenticatedWatchRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/teams': {
       id: '/_authenticated/teams'
@@ -341,7 +322,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMatchesRoute: typeof AuthenticatedMatchesRoute
   AuthenticatedQuizRoute: typeof AuthenticatedQuizRoute
   AuthenticatedTeamsRoute: typeof AuthenticatedTeamsRouteWithChildren
-  AuthenticatedWatchRoute: typeof AuthenticatedWatchRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -353,7 +333,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMatchesRoute: AuthenticatedMatchesRoute,
   AuthenticatedQuizRoute: AuthenticatedQuizRoute,
   AuthenticatedTeamsRoute: AuthenticatedTeamsRouteWithChildren,
-  AuthenticatedWatchRoute: AuthenticatedWatchRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
