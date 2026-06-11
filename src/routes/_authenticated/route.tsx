@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location }) => {
     const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
+    if (error || !data.user) throw redirect({ to: "/login" });
 
     // Force new users to choose at least one team before reaching the rest of the app.
     if (location.pathname !== "/bet") {

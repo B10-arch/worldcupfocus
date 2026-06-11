@@ -1,1 +1,32 @@
-project_id = "ujtjakvqywgutitmiwnf"
+project_id = "wticnahezjugepbyzlaq"
+
+# -----------------------------------------------------------------------------
+# Auth configuration
+#
+# Why this exists: new-account creation was failing with an "email rate limit"
+# error. That happens when "Confirm email" is ON and the built-in email service
+# throttles after a couple of signups — the confirmation email can't be sent, so
+# no usable account is created. The app is designed to sign users in immediately
+# (see src/routes/signup.tsx), so confirmations are turned OFF here.
+#
+# Applies to local dev (`supabase start`) and, when pushed, to the hosted
+# project (`supabase config push`). If your backend is managed by Lovable Cloud
+# and this file isn't auto-applied, also toggle it in the dashboard:
+#   Authentication → Sign In / Providers → Email → "Confirm email" = OFF.
+# -----------------------------------------------------------------------------
+[auth]
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+# OFF = accounts are created and signed in immediately, no confirmation email.
+enable_confirmations = false
+# Minimum gap between auth emails (only relevant if confirmations are re-enabled).
+max_frequency = "1s"
+
+[auth.rate_limit]
+# Generous ceilings so testing/launch doesn't hit the throttle. Per hour.
+email_sent = 30
+# Sign-in + sign-up requests allowed per 5 minutes per IP.
+sign_in_sign_ups = 30
+token_refresh = 150

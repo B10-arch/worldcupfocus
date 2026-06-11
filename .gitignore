@@ -16,6 +16,15 @@ dist-ssr
 .nitro
 *.local
 
+# Secrets — never commit. Use .env.example as the template; set real values
+# in your host (Vercel/Lovable) env settings.
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

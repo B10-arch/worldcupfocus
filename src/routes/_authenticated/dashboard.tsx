@@ -48,26 +48,31 @@ function Dashboard() {
   const trivia = useQuery({
     queryKey: ["trivia", "today"],
     queryFn: async () => {
-      const { count } = await supabase.from("trivia_facts").select("*", { count: "exact", head: true });
-      const total = count ?? 1;
+      const { count } = await supabase
+        .from("trivia_facts")
+        .select("*", { count: "exact", head: true });
+      const total = count ?? 0;
+      if (total === 0) return null; // no facts yet — avoids % 0 (NaN) and a stuck "Loading…"
       const idx = Math.floor(Date.now() / 86400000) % total;
       const { data } = await supabase
         .from("trivia_facts")
         .select("*")
         .order("created_at")
         .range(idx, idx);
-      return data?.[0];
+      return data?.[0] ?? null;
     },
   });
 
   const myPicks = useQuery({
     queryKey: ["my-picks", user.id],
     queryFn: async () =>
-      (await supabase
-        .from("bets")
-        .select("*, team:teams(*)")
-        .eq("user_id", user.id)
-        .order("placed_at", { ascending: true })).data ?? [],
+      (
+        await supabase
+          .from("bets")
+          .select("*, team:teams(*)")
+          .eq("user_id", user.id)
+          .order("placed_at", { ascending: true })
+      ).data ?? [],
   });
 
   const betCount = useQuery({
@@ -113,7 +118,6 @@ function Dashboard() {
     },
   });
 
-
   const pot = (betCount.data ?? 0) * ENTRY_FEE;
 
   return (
@@ -122,8 +126,8 @@ function Dashboard() {
         <div className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm">
           <CalendarClock className="size-5 text-primary" />
           <p>
-            <strong>Tournament begins {formatNPTFull(TOURNAMENT_START_UTC)}.</strong> No matches have
-            been played yet — scores and standings will update live as results come in.
+            <strong>Tournament begins {formatNPTFull(TOURNAMENT_START_UTC)}.</strong> No matches
+            have been played yet — scores and standings will update live as results come in.
           </p>
         </div>
       )}
@@ -147,7 +151,8 @@ function Dashboard() {
               to="/bet"
               className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:scale-105"
             >
-              {(myPicks.data?.length ?? 0) > 0 ? "Manage your picks" : "Pick your teams"} <ArrowUpRight className="size-4" />
+              {(myPicks.data?.length ?? 0) > 0 ? "Manage your picks" : "Pick your teams"}{" "}
+              <ArrowUpRight className="size-4" />
             </Link>
             <Link
               to="/bracket"
@@ -173,7 +178,6 @@ function Dashboard() {
               </p>
             </div>
           </div>
-
         </div>
 
         {/* Daily trivia */}
@@ -184,9 +188,13 @@ function Dashboard() {
               <span className="text-xs font-bold uppercase tracking-widest">Daily Trivia Fact</span>
             </div>
             <h3 className="mt-4 font-display text-xl font-bold leading-tight">
-              {trivia.data?.title ?? "Loading…"}
+              {trivia.isLoading ? "Loading…" : (trivia.data?.title ?? "More trivia coming soon")}
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">{trivia.data?.body}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {trivia.isLoading
+                ? ""
+                : (trivia.data?.body ?? "Daily facts will appear here as they're added.")}
+            </p>
           </div>
           <div className="mt-6">
             <div className="mb-2 flex justify-between text-xs font-bold uppercase">
@@ -218,9 +226,13 @@ function Dashboard() {
         <div className="mb-6 flex items-end justify-between">
           <div>
             <h2 className="font-display text-2xl font-bold">Match Center</h2>
-            <p className="text-sm uppercase text-muted-foreground">All times in Nepal Standard Time (NPT)</p>
+            <p className="text-sm uppercase text-muted-foreground">
+              All times in Nepal Standard Time (NPT)
+            </p>
           </div>
-          <span className="rounded-lg bg-pitch/10 px-3 py-1 text-xs font-bold text-pitch">Live tracking</span>
+          <span className="rounded-lg bg-pitch/10 px-3 py-1 text-xs font-bold text-pitch">
+            Live tracking
+          </span>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -238,13 +250,18 @@ function Dashboard() {
         <div className="rounded-3xl border border-border bg-surface p-8 shadow-card">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-xl font-bold">Pool Standings</h2>
-            <Link to="/leaderboard" className="text-xs font-bold uppercase tracking-widest text-primary">
+            <Link
+              to="/leaderboard"
+              className="text-xs font-bold uppercase tracking-widest text-primary"
+            >
               View all →
             </Link>
           </div>
           <div className="mt-6 space-y-3">
             {leaderboard.data?.length === 0 && (
-              <p className="text-sm text-muted-foreground">No bets yet. Be the first to back a team!</p>
+              <p className="text-sm text-muted-foreground">
+                No bets yet. Be the first to back a team!
+              </p>
             )}
             {leaderboard.data?.map((row, i) => (
               <div
@@ -258,7 +275,9 @@ function Dashboard() {
                   <div>
                     <p className="text-sm font-bold">{row.display_name ?? "Player"}</p>
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {(row.picks ?? []).map((p) => `${p.team_flag_emoji} ${p.team_code}`).join(" · ")}
+                      {(row.picks ?? [])
+                        .map((p) => `${p.team_flag_emoji} ${p.team_code}`)
+                        .join(" · ")}
                     </p>
                   </div>
                 </div>
@@ -281,7 +300,8 @@ function Dashboard() {
           <ul className="mt-6 space-y-3 text-sm">
             <li className="flex gap-3">
               <span className="font-display text-primary">01</span>
-              Back <strong>exactly {MAX_PICKS} different teams</strong> at Rs. {formatNPR(ENTRY_FEE)} each — Rs. {formatNPR(ENTRY_FEE * MAX_PICKS)} total.
+              Back <strong>exactly {MAX_PICKS} different teams</strong> at Rs.{" "}
+              {formatNPR(ENTRY_FEE)} each — Rs. {formatNPR(ENTRY_FEE * MAX_PICKS)} total.
             </li>
             <li className="flex gap-3">
               <span className="font-display text-primary">02</span>
@@ -326,7 +346,9 @@ function MatchCard({ match }: { match: any }) {
           ) : match.time_tbc ? (
             <>
               <span className="font-display text-base font-bold">vs</span>
-              <span className="text-[10px] font-bold uppercase text-muted-foreground">Time TBC</span>
+              <span className="text-[10px] font-bold uppercase text-muted-foreground">
+                Time TBC
+              </span>
             </>
           ) : (
             <>

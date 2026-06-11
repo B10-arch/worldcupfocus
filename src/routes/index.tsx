@@ -36,7 +36,7 @@ function Landing() {
             <span className="font-display text-xl font-bold">Focus World Cup Pool</span>
           </div>
           <Link
-            to="/auth"
+            to="/login"
             className="rounded-full bg-white px-5 py-2 text-sm font-bold text-night transition hover:scale-105"
           >
             Sign in
@@ -75,13 +75,13 @@ function Landing() {
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
-                to="/auth"
+                to="/signup"
                 className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition hover:scale-105"
               >
                 Back your team
               </Link>
               <Link
-                to="/auth"
+                to="/login"
                 className="rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-bold text-white backdrop-blur-sm transition hover:bg-white/10"
               >
                 View bracket

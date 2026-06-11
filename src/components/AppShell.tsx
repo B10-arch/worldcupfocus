@@ -21,7 +21,7 @@ export function AppShell({ children, displayName, isAdmin }: { children: ReactNo
     await queryClient.cancelQueries();
     queryClient.clear();
     await supabase.auth.signOut();
-    router.navigate({ to: "/auth", replace: true });
+    router.navigate({ to: "/login", replace: true });
   }
 
   const initials = (displayName ?? "U")
