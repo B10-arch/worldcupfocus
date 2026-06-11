@@ -1,5 +1,16 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { Trophy, LayoutDashboard, CalendarDays, Flag, GitFork, Brain, Medal, LogOut, ShieldCheck } from "lucide-react";
+import {
+  Trophy,
+  LayoutDashboard,
+  CalendarDays,
+  Flag,
+  GitFork,
+  Brain,
+  Medal,
+  Tv,
+  LogOut,
+  ShieldCheck,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -11,9 +22,18 @@ const navItems = [
   { to: "/bracket", label: "Bracket", icon: GitFork },
   { to: "/quiz", label: "Trivia", icon: Brain },
   { to: "/leaderboard", label: "Leaderboard", icon: Medal },
+  { to: "/watch", label: "Watch", icon: Tv },
 ] as const;
 
-export function AppShell({ children, displayName, isAdmin }: { children: ReactNode; displayName?: string; isAdmin?: boolean }) {
+export function AppShell({
+  children,
+  displayName,
+  isAdmin,
+}: {
+  children: ReactNode;
+  displayName?: string;
+  isAdmin?: boolean;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -53,7 +73,10 @@ export function AppShell({ children, displayName, isAdmin }: { children: ReactNo
                 key={item.to}
                 to={item.to}
                 className="rounded-full px-3 py-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                activeProps={{ className: "rounded-full px-3 py-1.5 text-sm font-semibold bg-secondary text-foreground" }}
+                activeProps={{
+                  className:
+                    "rounded-full px-3 py-1.5 text-sm font-semibold bg-secondary text-foreground",
+                }}
               >
                 {item.label}
               </Link>
@@ -62,7 +85,10 @@ export function AppShell({ children, displayName, isAdmin }: { children: ReactNo
               <Link
                 to="/admin"
                 className="ml-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary transition-colors hover:bg-primary/20"
-                activeProps={{ className: "ml-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground" }}
+                activeProps={{
+                  className:
+                    "ml-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground",
+                }}
               >
                 <ShieldCheck className="size-3.5" /> Admin
               </Link>
@@ -72,7 +98,9 @@ export function AppShell({ children, displayName, isAdmin }: { children: ReactNo
           <div className="flex items-center gap-3">
             <div className="hidden text-right md:block">
               <p className="text-xs font-semibold text-foreground">{displayName ?? "Player"}</p>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Pool member</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Pool member
+              </p>
             </div>
             <div
               className="flex size-9 items-center justify-center rounded-full text-xs font-bold text-white"
@@ -97,7 +125,10 @@ export function AppShell({ children, displayName, isAdmin }: { children: ReactNo
               key={item.to}
               to={item.to}
               className="flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground"
-              activeProps={{ className: "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-secondary text-foreground" }}
+              activeProps={{
+                className:
+                  "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-secondary text-foreground",
+              }}
             >
               <item.icon className="size-3.5" />
               {item.label}
@@ -107,7 +138,10 @@ export function AppShell({ children, displayName, isAdmin }: { children: ReactNo
             <Link
               to="/admin"
               className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary"
-              activeProps={{ className: "flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground" }}
+              activeProps={{
+                className:
+                  "flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground",
+              }}
             >
               <ShieldCheck className="size-3.5" /> Admin
             </Link>
