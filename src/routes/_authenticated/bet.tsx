@@ -15,6 +15,14 @@ export const Route = createFileRoute("/_authenticated/bet")({
 
 const ENTRY_FEE = 1000;
 
+type Pick = {
+  id: string;
+  team_id: string;
+  user_id?: string;
+  placed_at?: string;
+  team?: { flag_emoji?: string | null; name?: string | null } | null;
+};
+
 function BetPage() {
   const { user } = Route.useRouteContext();
   const router = useRouter();
@@ -34,11 +42,13 @@ function BetPage() {
   const myPicks = useQuery({
     queryKey: ["my-picks", user.id],
     queryFn: async () =>
-      (await supabase
-        .from("bets")
-        .select("*, team:teams(*)")
-        .eq("user_id", user.id)
-        .order("placed_at", { ascending: true })).data ?? [],
+      (
+        await supabase
+          .from("bets")
+          .select("*, team:teams(*)")
+          .eq("user_id", user.id)
+          .order("placed_at", { ascending: true })
+      ).data ?? [],
   });
 
   const pickedIds = new Set((myPicks.data ?? []).map((p) => p.team_id));
@@ -48,20 +58,41 @@ function BetPage() {
     t.name.toLowerCase().includes(search.toLowerCase()),
   );
 
+  const picksKey = ["my-picks", user.id];
+
   async function handleAdd(teamId: string) {
-    if (locked || pickedIds.has(teamId) || remaining <= 0) return;
+    if (locked) return;
+    // Read the live cache (not the render-time closure) so fast successive clicks
+    // are counted accurately and never optimistically exceed the max.
+    const prev = qc.getQueryData<Pick[]>(picksKey) ?? [];
+    if (prev.some((p) => p.team_id === teamId) || prev.length >= MAX_PICKS || busyTeamId === teamId)
+      return;
+    const team = teams.data?.find((t) => t.id === teamId);
+    // Optimistic: reflect the pick immediately so a single click feels instant —
+    // the server call + reconcile happen in the background.
+    qc.setQueryData(picksKey, [
+      ...prev,
+      {
+        id: `temp-${teamId}`,
+        team_id: teamId,
+        user_id: user.id,
+        placed_at: new Date().toISOString(),
+        team,
+      },
+    ]);
     setBusyTeamId(teamId);
     try {
       await addFn({ data: { teamId } });
-      await qc.invalidateQueries({ queryKey: ["my-picks", user.id] });
-      const newCount = (myPicks.data?.length ?? 0) + 1;
+      const newCount = prev.length + 1;
       const more = MAX_PICKS - newCount;
       toast.success(
         `Pick saved (${newCount}/${MAX_PICKS}). Rs. ${formatNPR(ENTRY_FEE * newCount)} total.${
           more > 0 ? ` You can add up to ${more} more.` : ""
         }`,
       );
+      qc.invalidateQueries({ queryKey: picksKey }); // reconcile real row in background
     } catch (err) {
+      qc.setQueryData(picksKey, prev); // rollback on failure
       toast.error(err instanceof Error ? err.message : "Could not save pick");
     } finally {
       setBusyTeamId(null);
@@ -70,12 +101,19 @@ function BetPage() {
 
   async function handleRemove(teamId: string) {
     if (locked) return;
+    const prev = qc.getQueryData<Pick[]>(picksKey) ?? [];
+    // Optimistic: drop the pick immediately.
+    qc.setQueryData(
+      picksKey,
+      prev.filter((p) => p.team_id !== teamId),
+    );
     setBusyTeamId(teamId);
     try {
       await removeFn({ data: { teamId } });
-      await qc.invalidateQueries({ queryKey: ["my-picks", user.id] });
       toast.message("Pick removed");
+      qc.invalidateQueries({ queryKey: picksKey });
     } catch (err) {
+      qc.setQueryData(picksKey, prev); // rollback on failure
       toast.error(err instanceof Error ? err.message : "Could not remove pick");
     } finally {
       setBusyTeamId(null);
@@ -90,11 +128,12 @@ function BetPage() {
   return (
     <div className="space-y-8">
       <header>
-        <h1 className="font-display text-4xl font-bold">
-          Choose your teams
-        </h1>
+        <h1 className="font-display text-4xl font-bold">Choose your teams</h1>
         <p className="mt-2 text-muted-foreground">
-          Back between 1 and {MAX_PICKS} distinct nations — your call. Rs. {formatNPR(ENTRY_FEE)} per team (so Rs. {formatNPR(ENTRY_FEE)}, {formatNPR(ENTRY_FEE * 2)}, or {formatNPR(ENTRY_FEE * MAX_PICKS)} total). Each pick earns points independently; share the per-team pot with anyone else backing the same nation.
+          Back between 1 and {MAX_PICKS} distinct nations — your call. Rs. {formatNPR(ENTRY_FEE)}{" "}
+          per team (so Rs. {formatNPR(ENTRY_FEE)}, {formatNPR(ENTRY_FEE * 2)}, or{" "}
+          {formatNPR(ENTRY_FEE * MAX_PICKS)} total). Each pick earns points independently; share the
+          per-team pot with anyone else backing the same nation.
         </p>
         {picksCount >= 1 && !locked && (
           <div className="mt-4">
@@ -102,7 +141,8 @@ function BetPage() {
               onClick={() => router.navigate({ to: "/dashboard" })}
               className="inline-flex items-center gap-2 rounded-full bg-pitch px-4 py-2 text-sm font-bold text-white transition hover:scale-105"
             >
-              Go to dashboard ({picksCount} pick{picksCount === 1 ? "" : "s"} · Rs. {formatNPR(ENTRY_FEE * picksCount)})
+              Go to dashboard ({picksCount} pick{picksCount === 1 ? "" : "s"} · Rs.{" "}
+              {formatNPR(ENTRY_FEE * picksCount)})
             </button>
           </div>
         )}
@@ -149,7 +189,9 @@ function BetPage() {
             </span>
           ))}
           {(myPicks.data?.length ?? 0) === 0 && (
-            <span className="text-sm text-muted-foreground">No picks yet — choose at least 1 team (up to {MAX_PICKS}) below.</span>
+            <span className="text-sm text-muted-foreground">
+              No picks yet — choose at least 1 team (up to {MAX_PICKS}) below.
+            </span>
           )}
         </div>
       </div>
@@ -186,7 +228,9 @@ function BetPage() {
                   : "border-border bg-surface hover:border-primary/50"
               } ${disabled && !isPicked ? "cursor-not-allowed opacity-50 hover:border-border" : ""}`}
             >
-              <div className="grid size-12 place-items-center rounded-xl bg-secondary text-3xl">{t.flag_emoji}</div>
+              <div className="grid size-12 place-items-center rounded-xl bg-secondary text-3xl">
+                {t.flag_emoji}
+              </div>
               <div className="flex-1">
                 <p className="font-bold">{t.name}</p>
                 <p className="text-xs text-muted-foreground">
