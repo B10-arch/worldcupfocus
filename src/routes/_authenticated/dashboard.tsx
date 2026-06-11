@@ -315,14 +315,6 @@ function Dashboard() {
               <span className="font-display text-primary">02</span>
               For each team, all backers <strong>split that team's pot equally</strong>.
             </li>
-            <li className="flex gap-3">
-              <span className="font-display text-primary">03</span>
-              Underdog multiplier applies <strong>per pick</strong> (any team outside FIFA top 15).
-            </li>
-            <li className="flex gap-3">
-              <span className="font-display text-primary">04</span>
-              Tied on total points? <strong>Earliest confirmed 3-pick set wins</strong>.
-            </li>
           </ul>
         </div>
       </section>
