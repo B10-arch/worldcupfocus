@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { WatchLive } from "@/components/WatchLive";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({ meta: [{ title: "Leaderboard · Focus World Cup Pool" }] }),
@@ -54,6 +55,8 @@ function LeaderboardPage() {
         </p>
       </header>
 
+      <WatchLive />
+
       <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
         <table className="w-full text-sm">
           <thead className="bg-muted text-left text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -66,7 +69,11 @@ function LeaderboardPage() {
           </thead>
           <tbody className="divide-y divide-border">
             {data?.length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">No picks placed yet.</td></tr>
+              <tr>
+                <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
+                  No picks placed yet.
+                </td>
+              </tr>
             )}
             {data?.map((row, i) => {
               const me = row.user_id === user.id;
@@ -77,7 +84,11 @@ function LeaderboardPage() {
                   </td>
                   <td className="px-4 py-4 font-bold">
                     {row.display_name ?? "Player"}
-                    {me && <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase text-primary-foreground">You</span>}
+                    {me && (
+                      <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase text-primary-foreground">
+                        You
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex flex-wrap gap-1.5">
