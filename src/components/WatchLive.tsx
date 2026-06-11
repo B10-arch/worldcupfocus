@@ -5,6 +5,7 @@ import { Tv, ExternalLink } from "lucide-react";
 // the one valid in their region. (No third-party re-streams: those are
 // unauthorized, unreliable, and ad/malware-laden.)
 const SOURCES: { name: string; region: string; url: string }[] = [
+  { name: "Dish Home Go", region: "Nepal — sign in to your plan", url: "https://www.watchdgo.com/en" },
   { name: "FIFA+", region: "Free — many countries", url: "https://www.fifa.com/fifaplus/" },
   { name: "Sony LIV", region: "Nepal / South Asia", url: "https://www.sonyliv.com" },
   { name: "FOX Sports", region: "USA · English", url: "https://www.foxsports.com/live" },
