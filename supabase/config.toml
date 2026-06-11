@@ -16,6 +16,20 @@ project_id = "wticnahezjugepbyzlaq"
 # -----------------------------------------------------------------------------
 [auth]
 enable_signup = true
+# Where Supabase sends users after OAuth (e.g. "Continue with Google") when no
+# valid redirect is matched. MUST be the live site, not localhost — otherwise
+# Google sign-in bounces back to localhost in production.
+site_url = "https://worldcupfocus-alpha.vercel.app"
+# Allow-list of return URLs. OAuth/email redirects only work if they match one
+# of these; anything else falls back to site_url. Wildcards cover sub-paths and
+# Vercel preview deployments.
+additional_redirect_urls = [
+  "https://worldcupfocus-alpha.vercel.app/**",
+  "https://*-bikash53s-projects.vercel.app/**",
+  "http://localhost:8080/**",
+  "http://localhost:8081/**",
+  "http://localhost:3000/**",
+]
 
 [auth.email]
 enable_signup = true
