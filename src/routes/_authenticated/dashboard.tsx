@@ -164,17 +164,25 @@ function Dashboard() {
 
           <div className="mt-8 grid grid-cols-3 gap-4 border-t border-white/10 pt-6 text-xs">
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400">Prize pot</p>
-              <p className="font-display text-2xl font-bold text-accent">Rs. {formatNPR(pot)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-400">Picks placed</p>
-              <p className="font-display text-2xl font-bold">{betCount.data ?? 0}</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">Your entry</p>
+              <p className="font-display text-2xl font-bold">
+                Rs. {formatNPR((myPicks.data?.length ?? 0) * ENTRY_FEE)}
+              </p>
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                {myPicks.data?.length ?? 0}/{MAX_PICKS} picks
+              </p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-widest text-slate-400">Your picks</p>
               <p className="font-display text-2xl font-bold">
                 {(myPicks.data ?? []).map((p) => p.team?.flag_emoji).join(" ") || "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">Prize pot</p>
+              <p className="font-display text-2xl font-bold text-accent">Rs. {formatNPR(pot)}</p>
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                Whole pool · {betCount.data ?? 0} pick{(betCount.data ?? 0) === 1 ? "" : "s"}
               </p>
             </div>
           </div>
