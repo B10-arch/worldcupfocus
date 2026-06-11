@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatNPR, formatNPTFull, isBetLocked } from "@/lib/time";
 import { toast } from "sonner";
 import { ShieldCheck, Users, Wallet, Trophy, Search, Download, Lock, Unlock } from "lucide-react";
+import { LiveStreamAdmin } from "@/components/LiveStreamAdmin";
 
 const ENTRY_FEE = 1000;
 
@@ -48,7 +49,9 @@ function AdminPage() {
   const [search, setSearch] = useState("");
   const [filterPayment, setFilterPayment] = useState<"all" | "paid" | "pending">("all");
   const [filterTeam, setFilterTeam] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"name" | "confirmed" | "registered" | "points">("registered");
+  const [sortBy, setSortBy] = useState<"name" | "confirmed" | "registered" | "points">(
+    "registered",
+  );
   const [tab, setTab] = useState<"registrations" | "backers">("registrations");
 
   const { data: rows = [], isLoading } = useQuery<Row[]>({
@@ -120,12 +123,12 @@ function AdminPage() {
       );
     }
     if (filterPayment !== "all") out = out.filter((r) => r.payment_status === filterPayment);
-    if (filterTeam !== "all") out = out.filter((r) => r.picks.some((p) => p.team_id === filterTeam));
+    if (filterTeam !== "all")
+      out = out.filter((r) => r.picks.some((p) => p.team_id === filterTeam));
     out = [...out].sort((a, b) => {
       if (sortBy === "name") return a.display_name.localeCompare(b.display_name);
       if (sortBy === "points") return b.total_points - a.total_points;
-      if (sortBy === "confirmed")
-        return (a.confirmed_at ?? "").localeCompare(b.confirmed_at ?? "");
+      if (sortBy === "confirmed") return (a.confirmed_at ?? "").localeCompare(b.confirmed_at ?? "");
       return b.profile_created_at.localeCompare(a.profile_created_at);
     });
     return out;
@@ -142,22 +145,49 @@ function AdminPage() {
     const collected = paidPicks * ENTRY_FEE;
     const expected = totalPicks * ENTRY_FEE;
     const counts = new Map<string, number>();
-    rows.forEach((r) => r.picks.forEach((p) => counts.set(p.team_id, (counts.get(p.team_id) ?? 0) + 1)));
+    rows.forEach((r) =>
+      r.picks.forEach((p) => counts.set(p.team_id, (counts.get(p.team_id) ?? 0) + 1)),
+    );
     let topTeamId: string | null = null;
     let topCount = 0;
-    counts.forEach((c, id) => { if (c > topCount) { topCount = c; topTeamId = id; } });
+    counts.forEach((c, id) => {
+      if (c > topCount) {
+        topCount = c;
+        topTeamId = id;
+      }
+    });
     const topTeam = topTeamId
-      ? rows.flatMap((r) => r.picks).find((p) => p.team_id === topTeamId) ?? null
+      ? (rows.flatMap((r) => r.picks).find((p) => p.team_id === topTeamId) ?? null)
       : null;
     const distinctTeams = counts.size;
     const underdogPicks = rows
       .flatMap((r) => r.picks)
       .filter((p) => (p.fifa_rank ?? 0) > 15).length;
-    return { total, paid, unpaid, collected, expected, totalPicks, distinctTeams, topTeam, topCount, underdogPicks };
+    return {
+      total,
+      paid,
+      unpaid,
+      collected,
+      expected,
+      totalPicks,
+      distinctTeams,
+      topTeam,
+      topCount,
+      underdogPicks,
+    };
   }, [rows]);
 
   const backers = useMemo(() => {
-    const groups = new Map<string, { team_name: string | null; team_flag: string | null; team_group: string | null; fifa_rank: number | null; list: Array<{ user_id: string; display_name: string; payment_status: string }> }>();
+    const groups = new Map<
+      string,
+      {
+        team_name: string | null;
+        team_flag: string | null;
+        team_group: string | null;
+        fifa_rank: number | null;
+        list: Array<{ user_id: string; display_name: string; payment_status: string }>;
+      }
+    >();
     rows.forEach((r) =>
       r.picks.forEach((p) => {
         const g = groups.get(p.team_id) ?? {
@@ -167,7 +197,11 @@ function AdminPage() {
           fifa_rank: p.fifa_rank,
           list: [] as Array<{ user_id: string; display_name: string; payment_status: string }>,
         };
-        g.list.push({ user_id: r.user_id, display_name: r.display_name, payment_status: r.payment_status });
+        g.list.push({
+          user_id: r.user_id,
+          display_name: r.display_name,
+          payment_status: r.payment_status,
+        });
         groups.set(p.team_id, g);
       }),
     );
@@ -183,7 +217,10 @@ function AdminPage() {
 
   async function togglePayment(userId: string, current: string) {
     const next = current === "paid" ? "pending" : "paid";
-    const { error } = await supabase.from("profiles").update({ payment_status: next }).eq("id", userId);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ payment_status: next })
+      .eq("id", userId);
     if (error) toast.error(error.message);
     else {
       toast.success(`Marked ${next}`);
@@ -196,7 +233,9 @@ function AdminPage() {
       "name",
       "registered_at_npt",
       "picks_count",
-      "team_1", "team_2", "team_3",
+      "team_1",
+      "team_2",
+      "team_3",
       "confirmed_at_npt",
       "locked",
       "payment_status",
@@ -240,7 +279,8 @@ function AdminPage() {
             <ShieldCheck className="size-8 text-primary" /> Admin
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Pool operations console. Visible to admin role only — participants see only the public leaderboard.
+            Pool operations console. Visible to admin role only — participants see only the public
+            leaderboard.
           </p>
         </div>
         <button
@@ -251,8 +291,14 @@ function AdminPage() {
         </button>
       </header>
 
+      <LiveStreamAdmin />
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard icon={<Users className="size-4" />} label="Participants" value={summary.total} />
+        <SummaryCard
+          icon={<Users className="size-4" />}
+          label="Participants"
+          value={summary.total}
+        />
         <SummaryCard
           icon={<Wallet className="size-4" />}
           label="Collected pot"
@@ -351,10 +397,18 @@ function AdminPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {isLoading && (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">Loading…</td></tr>
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                      Loading…
+                    </td>
+                  </tr>
                 )}
                 {!isLoading && filtered.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">No records.</td></tr>
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                      No records.
+                    </td>
+                  </tr>
                 )}
                 {filtered.map((r) => (
                   <tr key={r.user_id} className="hover:bg-muted/40">
@@ -424,22 +478,27 @@ function AdminPage() {
 
       {tab === "backers" && (
         <div className="space-y-4">
-          {backers.length === 0 && (
-            <p className="text-muted-foreground">No bets placed yet.</p>
-          )}
+          {backers.length === 0 && <p className="text-muted-foreground">No bets placed yet.</p>}
           {backers.map((g) => {
             const splitShare = g.backers > 1 ? `Pot splits ${g.backers} ways` : "Solo backer";
             return (
-              <div key={g.team_id} className="rounded-2xl border border-border bg-surface p-4 shadow-card">
+              <div
+                key={g.team_id}
+                className="rounded-2xl border border-border bg-surface p-4 shadow-card"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <span className="text-3xl">{g.team_flag}</span>
                     <div>
                       <p className="font-display text-lg font-bold">
-                        {g.team_name} <span className="text-xs text-muted-foreground">· Group {g.team_group} · FIFA #{g.fifa_rank}</span>
+                        {g.team_name}{" "}
+                        <span className="text-xs text-muted-foreground">
+                          · Group {g.team_group} · FIFA #{g.fifa_rank}
+                        </span>
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {g.backers} backer{g.backers === 1 ? "" : "s"} · {g.paid} paid · {splitShare}
+                        {g.backers} backer{g.backers === 1 ? "" : "s"} · {g.paid} paid ·{" "}
+                        {splitShare}
                       </p>
                     </div>
                   </div>
