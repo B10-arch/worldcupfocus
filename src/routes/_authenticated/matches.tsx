@@ -116,18 +116,20 @@ function Section({
                   </td>
                   <td className="px-4 py-4 text-xs text-muted-foreground">{m.venue ?? "TBC"}</td>
                   <td className="px-4 py-4 text-right">
-                    {m.status === "live" ? (
-                      <span className="rounded-full bg-magenta/10 px-2 py-0.5 text-xs font-bold text-magenta">
-                        LIVE
-                      </span>
-                    ) : played ? (
-                      <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-2">
+                      {m.status === "live" ? (
+                        <span className="rounded-full bg-magenta/10 px-2 py-0.5 text-xs font-bold text-magenta">
+                          LIVE
+                        </span>
+                      ) : played ? (
                         <span className="text-xs font-bold text-muted-foreground">FT</span>
+                      ) : (
+                        <span className="text-xs font-bold text-primary">Upcoming</span>
+                      )}
+                      {(played || (m.highlights_url ?? "").trim()) && (
                         <MatchHighlights match={m} compact />
-                      </div>
-                    ) : (
-                      <span className="text-xs font-bold text-primary">Upcoming</span>
-                    )}
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

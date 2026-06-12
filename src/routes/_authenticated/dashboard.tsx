@@ -402,7 +402,7 @@ function MatchCard({ match }: { match: any }) {
           {match.score_a} — {match.score_b}
         </div>
       )}
-      {finished && <MatchHighlights match={match} />}
+      {(finished || (match.highlights_url ?? "").trim()) && <MatchHighlights match={match} />}
     </div>
   );
 }

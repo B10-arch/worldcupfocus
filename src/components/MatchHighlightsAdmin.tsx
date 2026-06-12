@@ -23,19 +23,26 @@ type AdminMatch = {
  */
 export function MatchHighlightsAdmin() {
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["admin-match-highlights"],
+    retry: false,
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      // Show every match that has kicked off (played or in-progress) — not just
+      // status='finished', so a game whose status hasn't synced yet is still
+      // settable. Newest first.
+      const { data, error } = await (supabase as any)
         .from("matches")
         .select(
           "id, status, kickoff_utc, score_a, score_b, highlights_url, team_a:teams!matches_team_a_id_fkey(name, flag_emoji), team_b:teams!matches_team_b_id_fkey(name, flag_emoji)",
         )
-        .eq("status", "finished")
+        .lte("kickoff_utc", new Date().toISOString())
         .order("kickoff_utc", { ascending: false });
+      if (error) throw error;
       return (data ?? []) as AdminMatch[];
     },
   });
+
+  const missingColumn = /highlights_url/.test((error as Error | null)?.message ?? "");
 
   // Local edits keyed by match id; falls back to the saved value when untouched.
   const [edits, setEdits] = useState<Record<string, string>>({});
@@ -69,17 +76,30 @@ export function MatchHighlightsAdmin() {
         <h2 className="font-display text-xl font-bold">Match Highlights</h2>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Paste a highlights video URL (YouTube link or embed) for each finished match — it shows in
-        the Match Center popup.{" "}
-        <strong>Verify it&apos;s real footage and plays in your region</strong> before saving;
-        official broadcaster clips (FOX, etc.) are often geo-locked. Leave blank to fall back to a
-        YouTube search link.
+        Paste a highlights video URL (YouTube link or embed) for each played match — it shows in the
+        Match Center popup. <strong>Verify it&apos;s real footage and plays in your region</strong>{" "}
+        before saving; official broadcaster clips (FOX, etc.) are often geo-locked. Leave blank to
+        fall back to a YouTube search link.
       </p>
 
+      {error && (
+        <div className="mt-4 rounded-xl border border-magenta/40 bg-magenta/10 p-3 text-sm text-magenta">
+          {missingColumn ? (
+            <>
+              The <code>highlights_url</code> column isn&apos;t in the database yet. Run the
+              migration SQL (supabase/migrations/20260612020000_match_highlights.sql) in the
+              Supabase SQL Editor, then refresh this page.
+            </>
+          ) : (
+            <>Couldn&apos;t load matches: {(error as Error).message}</>
+          )}
+        </div>
+      )}
+
       <div className="mt-4 space-y-2">
-        {isLoading && <p className="text-sm text-muted-foreground">Loading finished matches…</p>}
-        {!isLoading && (data ?? []).length === 0 && (
-          <p className="text-sm text-muted-foreground">No finished matches yet.</p>
+        {isLoading && <p className="text-sm text-muted-foreground">Loading matches…</p>}
+        {!isLoading && !error && (data ?? []).length === 0 && (
+          <p className="text-sm text-muted-foreground">No matches have kicked off yet.</p>
         )}
         {(data ?? []).map((m) => {
           const saved = m.highlights_url ?? "";
