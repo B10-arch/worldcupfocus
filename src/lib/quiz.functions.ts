@@ -6,6 +6,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 // cheap, and available on Google AI Studio keys (the AIza... kind).
 const GEMINI_MODEL = "gemini-2.5-flash";
 const QUESTIONS_PER_DAY = 10;
+// Over-generate so the fact-check pass can drop weak/ambiguous questions and we
+// still land on a full set of QUESTIONS_PER_DAY verified ones.
+const QUESTIONS_TO_GENERATE = 16;
 const GEMINI_TIMEOUT_MS = 25_000;
 
 type AiQuestion = {
@@ -42,7 +45,19 @@ export const ensureDailyQuiz = createServerFn({ method: "POST" })
     }
 
     const avoid: string[] = Array.isArray(status?.recent_questions) ? status.recent_questions : [];
-    const questions = await generateWithGemini(apiKey, String(status?.quiz_date ?? ""), avoid);
+    const generated = await generateWithGemini(apiKey, String(status?.quiz_date ?? ""), avoid);
+
+    // Second pass: an independent fact-check that re-derives the correct answer
+    // and drops questions that are wrong, ambiguous, speculative, or opinion.
+    // Falls back to the unverified set if the check fails, so the day still runs.
+    let questions: AiQuestion[];
+    try {
+      questions = await factCheckWithGemini(apiKey, generated);
+    } catch (err) {
+      console.warn("Quiz fact-check skipped:", err);
+      questions = generated;
+    }
+    questions = questions.slice(0, QUESTIONS_PER_DAY);
 
     const { data, error } = await (supabase as any).rpc("upsert_daily_quiz_from_ai", {
       p_questions: questions,
@@ -63,15 +78,18 @@ async function generateWithGemini(
     .join("\n");
 
   const prompt = [
-    `Generate exactly ${QUESTIONS_PER_DAY} multiple-choice quiz questions for ${date}.`,
+    `Generate exactly ${QUESTIONS_TO_GENERATE} multiple-choice quiz questions for ${date}.`,
     "Topic: football/soccer, centered on the 2026 FIFA World Cup (co-hosted by the USA, Mexico and Canada) plus general World Cup history and football knowledge.",
     "",
     "Rules:",
     "- Each question must have exactly 4 options.",
     "- `correct_index` is the 0-based index of the correct option. Vary which position is correct across the set (do NOT always use 0).",
-    `- Mix difficulty: about 4 "beginner", 3 "professional", 3 "expertise".`,
-    "- Questions must be factually accurate, unambiguous, and have a single correct answer.",
-    "- Each needs a concise one-sentence explanation.",
+    `- Mix difficulty: about 6 "beginner", 5 "professional", 5 "expertise".`,
+    "- ACCURACY IS CRITICAL. Every question must have ONE objectively, verifiably correct answer that is not in dispute.",
+    "- The three other options must be clearly, factually wrong — not 'also defensible'. Double-check the correct answer before writing it.",
+    "- Ask ONLY about established, settled facts: results, dates, venues, records, rosters, rules. Do NOT ask about predictions, expectations, projections, 'likely'/'expected to' qualify, opinions, or anything not yet decided.",
+    "- Avoid anything whose answer changes over time or is debatable (e.g. 'best player', 'favourite to win', 'expected to qualify').",
+    "- Each needs a concise one-sentence explanation that justifies why the correct option is correct.",
     "- Make the set fresh and varied for today. Do NOT reuse, rephrase, or closely mirror any of these recently-used questions:",
     avoidList || "- (none yet)",
   ].join("\n");
@@ -138,12 +156,126 @@ async function generateWithGemini(
   const valid = (Array.isArray(parsed) ? parsed : [])
     .map(normalizeQuestion)
     .filter((q): q is AiQuestion => q !== null)
-    .slice(0, QUESTIONS_PER_DAY);
+    .slice(0, QUESTIONS_TO_GENERATE);
 
   if (valid.length < 4) {
     throw new Error(`Gemini produced too few valid questions (${valid.length})`);
   }
   return valid;
+}
+
+/**
+ * Independent fact-check pass. Sends the generated questions back to Gemini as a
+ * strict reviewer that re-derives the correct answer from scratch, and returns
+ * only the questions it confirms are accurate, unambiguous, and not speculative
+ * (correcting `correct_index` where the reviewer disagrees). This is what catches
+ * the "expected to qualify → Costa Rica vs Panama" class of soft/wrong answers.
+ * Throws if the review can't be completed so the caller can fall back.
+ */
+async function factCheckWithGemini(apiKey: string, questions: AiQuestion[]): Promise<AiQuestion[]> {
+  if (questions.length === 0) return questions;
+
+  const numbered = questions
+    .map((q, i) => {
+      const opts = q.options.map((o, j) => `    [${j}] ${o}`).join("\n");
+      return `Q${i} (claimed correct_index=${q.correct_index}):\n  ${q.question}\n${opts}`;
+    })
+    .join("\n\n");
+
+  const prompt = [
+    "You are a strict football/World Cup fact-checker. Review each question below.",
+    "For EACH question, independently work out the correct answer from your own knowledge —",
+    "do not assume the claimed correct_index is right.",
+    "",
+    "Return one verdict object per question with these fields:",
+    "- index: the question's Q-number.",
+    "- keep: true ONLY if the question has exactly one objectively correct, undisputed answer",
+    "  among the options, is unambiguous, and is about a settled fact (NOT a prediction,",
+    "  expectation, projection, opinion, or anything not yet decided). Otherwise false.",
+    "- correct_index: the 0-based index of the truly correct option (your own answer).",
+    "",
+    "Be harsh: if you are not certain the answer is correct and undisputed, set keep=false.",
+    "",
+    numbered,
+  ].join("\n");
+
+  const body = {
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "ARRAY",
+        items: {
+          type: "OBJECT",
+          properties: {
+            index: { type: "INTEGER" },
+            keep: { type: "BOOLEAN" },
+            correct_index: { type: "INTEGER" },
+          },
+          required: ["index", "keep", "correct_index"],
+          propertyOrdering: ["index", "keep", "correct_index"],
+        },
+      },
+    },
+  };
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      },
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Gemini fact-check failed (${res.status}): ${detail.slice(0, 300)}`);
+  }
+
+  const json: any = await res.json();
+  const text: string | undefined = json?.candidates?.[0]?.content?.parts
+    ?.map((p: any) => p?.text ?? "")
+    .join("");
+  if (!text) throw new Error("Gemini fact-check returned no content");
+
+  const verdicts = JSON.parse(text) as Array<{
+    index: number;
+    keep: boolean;
+    correct_index: number;
+  }>;
+  if (!Array.isArray(verdicts)) throw new Error("Gemini fact-check returned invalid JSON");
+
+  const byIndex = new Map(verdicts.map((v) => [v.index, v]));
+  const kept = questions.filter((q, i) => {
+    const v = byIndex.get(i);
+    if (!v || !v.keep) return false;
+    // Trust the reviewer's correct_index when it's a valid option.
+    if (
+      Number.isInteger(v.correct_index) &&
+      v.correct_index >= 0 &&
+      v.correct_index < q.options.length
+    ) {
+      q.correct_index = v.correct_index;
+    }
+    return true;
+  });
+
+  // If the reviewer nuked almost everything, it likely misfired — keep the
+  // originals rather than shipping a near-empty quiz.
+  if (kept.length < Math.min(QUESTIONS_PER_DAY, Math.ceil(questions.length / 2))) {
+    return questions;
+  }
+  return kept;
 }
 
 function normalizeQuestion(raw: any): AiQuestion | null {
