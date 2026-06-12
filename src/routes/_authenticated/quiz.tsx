@@ -271,7 +271,7 @@ function DailyQuizPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
+    <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 font-display text-4xl font-bold">
@@ -313,90 +313,102 @@ function DailyQuizPage() {
         </div>
       </header>
 
-      {/* Always-live combined board: streak + today's score, ranked, with popup. */}
-      <LiveStandings rows={standings} meId={user.id} />
-
-      {dailyQ.data && (
-        <div
-          className={`flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-medium ${
-            dailyQ.data.played_today
-              ? "border-pitch/30 bg-pitch/5 text-pitch"
-              : dailyQ.data.streak > 0
-                ? "border-amber-pop/30 bg-amber-pop/5 text-amber-pop"
-                : "border-border bg-surface text-muted-foreground"
-          }`}
-        >
-          <Flame className="size-4 shrink-0" />
-          {dailyQ.data.played_today ? (
-            <span>
-              Done for today — your {dailyQ.data.streak}-day streak is safe. Come back tomorrow to
-              keep it going!
-            </span>
-          ) : dailyQ.data.streak > 0 ? (
-            <span>
-              You're on a {dailyQ.data.streak}-day streak. Play today's quiz to make it{" "}
-              {dailyQ.data.streak + 1}!
-            </span>
-          ) : (
-            <span>Play today's quiz to start a daily streak. 🔥</span>
+      <div className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-start">
+        <div className="space-y-8">
+          {dailyQ.data && (
+            <div
+              className={`flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-medium ${
+                dailyQ.data.played_today
+                  ? "border-pitch/30 bg-pitch/5 text-pitch"
+                  : dailyQ.data.streak > 0
+                    ? "border-amber-pop/30 bg-amber-pop/5 text-amber-pop"
+                    : "border-border bg-surface text-muted-foreground"
+              }`}
+            >
+              <Flame className="size-4 shrink-0" />
+              {dailyQ.data.played_today ? (
+                <span>
+                  Done for today — your {dailyQ.data.streak}-day streak is safe. Come back tomorrow
+                  to keep it going!
+                </span>
+              ) : dailyQ.data.streak > 0 ? (
+                <span>
+                  You're on a {dailyQ.data.streak}-day streak. Play today's quiz to make it{" "}
+                  {dailyQ.data.streak + 1}!
+                </span>
+              ) : (
+                <span>Play today's quiz to start a daily streak. 🔥</span>
+              )}
+            </div>
           )}
+
+          {dailyQ.data?.trivia_fact && (
+            <div className="rounded-2xl border border-magenta/30 bg-magenta/5 p-5">
+              <div className="flex items-center gap-2 text-magenta">
+                <Sparkles className="size-3" />
+                <span className="text-xs font-bold uppercase tracking-widest">
+                  Daily Trivia Fact
+                </span>
+              </div>
+              <h3 className="mt-2 font-display text-xl font-bold">
+                {dailyQ.data.trivia_fact.title}
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">{dailyQ.data.trivia_fact.body}</p>
+            </div>
+          )}
+
+          <section className="space-y-4">
+            {dailyQ.isLoading && (
+              <p className="text-muted-foreground">
+                Preparing today's quiz… the first visit each day generates a fresh set, which can
+                take a few seconds.
+              </p>
+            )}
+            {dailyQ.data && dailyQ.data.questions.length === 0 && (
+              <p className="text-muted-foreground">No quiz available for today.</p>
+            )}
+            {dailyQ.data?.questions.map((q, idx) => {
+              const chosen = alreadyAttempted
+                ? dailyQ.data?.attempt?.answers?.[q.id]
+                : answers[q.id];
+              return (
+                <QuestionCard
+                  key={q.id}
+                  q={q}
+                  idx={idx}
+                  locked={alreadyAttempted}
+                  submitting={submitting}
+                  chosen={chosen}
+                  correctIdx={correctMap.get(q.id)}
+                  explanation={reveals[q.id]?.explanation}
+                  expired={!!expired[q.id]}
+                  onPick={pickAnswer}
+                  onExpire={handleExpire}
+                />
+              );
+            })}
+
+            {!alreadyAttempted && dailyQ.data && dailyQ.data.questions.length > 0 && (
+              <button
+                onClick={submit}
+                disabled={submitting || resolvedCount !== totalQuestions}
+                className="w-full rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition hover:scale-[1.01] disabled:opacity-50"
+              >
+                {submitting
+                  ? "Submitting…"
+                  : resolvedCount !== totalQuestions
+                    ? `Answer all to submit (${resolvedCount}/${totalQuestions} done)`
+                    : "Submit answers"}
+              </button>
+            )}
+          </section>
         </div>
-      )}
 
-      {dailyQ.data?.trivia_fact && (
-        <div className="rounded-2xl border border-magenta/30 bg-magenta/5 p-5">
-          <div className="flex items-center gap-2 text-magenta">
-            <Sparkles className="size-3" />
-            <span className="text-xs font-bold uppercase tracking-widest">Daily Trivia Fact</span>
-          </div>
-          <h3 className="mt-2 font-display text-xl font-bold">{dailyQ.data.trivia_fact.title}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">{dailyQ.data.trivia_fact.body}</p>
-        </div>
-      )}
-
-      <section className="space-y-4">
-        {dailyQ.isLoading && (
-          <p className="text-muted-foreground">
-            Preparing today's quiz… the first visit each day generates a fresh set, which can take a
-            few seconds.
-          </p>
-        )}
-        {dailyQ.data && dailyQ.data.questions.length === 0 && (
-          <p className="text-muted-foreground">No quiz available for today.</p>
-        )}
-        {dailyQ.data?.questions.map((q, idx) => {
-          const chosen = alreadyAttempted ? dailyQ.data?.attempt?.answers?.[q.id] : answers[q.id];
-          return (
-            <QuestionCard
-              key={q.id}
-              q={q}
-              idx={idx}
-              locked={alreadyAttempted}
-              submitting={submitting}
-              chosen={chosen}
-              correctIdx={correctMap.get(q.id)}
-              explanation={reveals[q.id]?.explanation}
-              expired={!!expired[q.id]}
-              onPick={pickAnswer}
-              onExpire={handleExpire}
-            />
-          );
-        })}
-
-        {!alreadyAttempted && dailyQ.data && dailyQ.data.questions.length > 0 && (
-          <button
-            onClick={submit}
-            disabled={submitting || resolvedCount !== totalQuestions}
-            className="w-full rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition hover:scale-[1.01] disabled:opacity-50"
-          >
-            {submitting
-              ? "Submitting…"
-              : resolvedCount !== totalQuestions
-                ? `Answer all to submit (${resolvedCount}/${totalQuestions} done)`
-                : "Submit answers"}
-          </button>
-        )}
-      </section>
+        {/* Always-live combined board: streak + today's score, ranked, with popup. */}
+        <aside className="lg:sticky lg:top-6">
+          <LiveStandings rows={standings} meId={user.id} />
+        </aside>
+      </div>
     </div>
   );
 }
