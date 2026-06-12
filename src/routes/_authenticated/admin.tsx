@@ -6,6 +6,7 @@ import { formatNPR, formatNPTFull, isBetLocked } from "@/lib/time";
 import { toast } from "sonner";
 import { ShieldCheck, Users, Wallet, Trophy, Search, Download, Lock, Unlock } from "lucide-react";
 import { LiveStreamAdmin } from "@/components/LiveStreamAdmin";
+import { MatchHighlightsAdmin } from "@/components/MatchHighlightsAdmin";
 
 const ENTRY_FEE = 1000;
 
@@ -292,6 +293,8 @@ function AdminPage() {
       </header>
 
       <LiveStreamAdmin />
+
+      <MatchHighlightsAdmin />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <SummaryCard

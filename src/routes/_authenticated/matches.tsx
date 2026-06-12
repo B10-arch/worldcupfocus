@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPT, formatNPTDate, isTournamentStarted } from "@/lib/time";
+import { MatchHighlights } from "@/components/MatchHighlights";
 
 export const Route = createFileRoute("/_authenticated/matches")({
   head: () => ({ meta: [{ title: "Matches · Focus World Cup Pool" }] }),
@@ -37,7 +38,8 @@ function MatchesPage() {
         <h2 className="font-display text-4xl font-bold">Match schedule</h2>
         <p className="mt-2 text-muted-foreground">
           All kickoff times converted to Nepal Standard Time (UTC +5:45).
-          {!isTournamentStarted() && " The tournament has not started yet — no scores will appear until matches kick off."}
+          {!isTournamentStarted() &&
+            " The tournament has not started yet — no scores will appear until matches kick off."}
         </p>
       </header>
 
@@ -89,7 +91,11 @@ function Section({
               return (
                 <tr key={m.id} className="hover:bg-muted/50">
                   <td className="px-4 py-4 font-mono font-bold">
-                    {hideTime ? <span className="text-muted-foreground">TBC</span> : formatNPT(m.kickoff_utc)}
+                    {hideTime ? (
+                      <span className="text-muted-foreground">TBC</span>
+                    ) : (
+                      formatNPT(m.kickoff_utc)
+                    )}
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
@@ -111,9 +117,14 @@ function Section({
                   <td className="px-4 py-4 text-xs text-muted-foreground">{m.venue ?? "TBC"}</td>
                   <td className="px-4 py-4 text-right">
                     {m.status === "live" ? (
-                      <span className="rounded-full bg-magenta/10 px-2 py-0.5 text-xs font-bold text-magenta">LIVE</span>
+                      <span className="rounded-full bg-magenta/10 px-2 py-0.5 text-xs font-bold text-magenta">
+                        LIVE
+                      </span>
                     ) : played ? (
-                      <span className="text-xs font-bold text-muted-foreground">FT</span>
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="text-xs font-bold text-muted-foreground">FT</span>
+                        <MatchHighlights match={m} compact />
+                      </div>
                     ) : (
                       <span className="text-xs font-bold text-primary">Upcoming</span>
                     )}
