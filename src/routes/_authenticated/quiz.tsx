@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureDailyQuiz } from "@/lib/quiz.functions";
 import { toast } from "sonner";
@@ -20,8 +20,9 @@ export const Route = createFileRoute("/_authenticated/quiz")({
   component: DailyQuizPage,
 });
 
-// Seconds each question stays answerable once it scrolls into view. Miss it and
-// that question locks at 0 points. Enforced client-side (trusted internal pool).
+// Seconds each question is answerable once it becomes the active question. The
+// clock starts only when the player presses Start and resets fresh per question.
+// Enforced client-side (trusted internal pool).
 const QUESTION_SECONDS = 15;
 
 type DailyQuestion = {
@@ -198,29 +199,26 @@ function DailyQuizPage() {
     return m;
   }, [result, reveals]);
 
-  async function pickAnswer(qid: string, i: number) {
-    if (alreadyAttempted || submitting) return;
-    if (expired[qid]) return; // timer ran out — locked at 0
-    if (reveals[qid] != null) return; // locked once revealed
-    setAnswers((a) => ({ ...a, [qid]: i }));
-    try {
-      const { data, error } = await (supabase as any).rpc("reveal_daily_quiz_answer", {
-        p_question_id: qid,
-      });
-      if (error) throw error;
-      setReveals((r) => ({
-        ...r,
-        [qid]: { correct_index: data.correct_index, explanation: data.explanation },
-      }));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not check answer");
-    }
-  }
+  // --- Sequential per-question timer -------------------------------------
+  // Nothing runs when the page is merely visited. The player presses Start; from
+  // then on the clock runs ONLY for the first unresolved ("active") question.
+  // Each question gets a fresh QUESTION_SECONDS when it becomes active, so time
+  // spent on earlier questions is never deducted from the next one.
+  const [started, setStarted] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(QUESTION_SECONDS);
 
-  // Timer hit zero on an unanswered question: lock it (scores 0) and still reveal
-  // the correct answer so the player learns it. Stable identity — used in effects.
+  const questions = useMemo(() => dailyQ.data?.questions ?? [], [dailyQ.data]);
+  const activeIndex = useMemo(
+    () => questions.findIndex((q) => answers[q.id] == null && !expired[q.id]),
+    [questions, answers, expired],
+  );
+  const activeId = activeIndex >= 0 ? questions[activeIndex].id : null;
+
+  // Timer hit zero on the active question: lock it (scores 0), reveal the answer
+  // so the player learns it, and reset the clock for the next question.
   const handleExpire = useCallback(async (qid: string) => {
     setExpired((e) => (e[qid] ? e : { ...e, [qid]: true }));
+    setSecondsLeft(QUESTION_SECONDS); // fresh clock for whichever becomes active next
     try {
       const { data, error } = await (supabase as any).rpc("reveal_daily_quiz_answer", {
         p_question_id: qid,
@@ -236,13 +234,51 @@ function DailyQuizPage() {
     }
   }, []);
 
-  const totalQuestions = dailyQ.data?.questions.length ?? 0;
+  // Drive the active question's countdown. Re-runs whenever the active question
+  // changes (answered or expired) → a brand-new 15s interval. Cleared if the
+  // player answers early so leftover seconds never carry into the next question.
+  useEffect(() => {
+    if (!started || alreadyAttempted || activeId == null) return;
+    setSecondsLeft(QUESTION_SECONDS);
+    let remaining = QUESTION_SECONDS;
+    const id = setInterval(() => {
+      remaining -= 1;
+      setSecondsLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(id);
+        handleExpire(activeId);
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [started, alreadyAttempted, activeId, handleExpire]);
+
+  async function pickAnswer(qid: string, i: number) {
+    if (alreadyAttempted || submitting) return;
+    if (!started || qid !== activeId) return; // only the active question, after Start
+    if (expired[qid]) return; // timer ran out — locked at 0
+    if (reveals[qid] != null) return; // locked once revealed
+    setAnswers((a) => ({ ...a, [qid]: i }));
+    setSecondsLeft(QUESTION_SECONDS); // next question starts on a full clock
+    try {
+      const { data, error } = await (supabase as any).rpc("reveal_daily_quiz_answer", {
+        p_question_id: qid,
+      });
+      if (error) throw error;
+      setReveals((r) => ({
+        ...r,
+        [qid]: { correct_index: data.correct_index, explanation: data.explanation },
+      }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not check answer");
+    }
+  }
+
+  const totalQuestions = questions.length;
   // A question is "resolved" once it's answered or its timer expired. You can
   // submit when every question is resolved (timed-out ones simply score 0).
   const resolvedCount = useMemo(
-    () =>
-      (dailyQ.data?.questions ?? []).filter((q) => answers[q.id] != null || expired[q.id]).length,
-    [dailyQ.data, answers, expired],
+    () => questions.filter((q) => answers[q.id] != null || expired[q.id]).length,
+    [questions, answers, expired],
   );
 
   async function submit() {
@@ -278,8 +314,9 @@ function DailyQuizPage() {
             <CalendarDays className="size-8 text-primary" /> Daily Quiz
           </h1>
           <p className="mt-2 text-muted-foreground">
-            10 fresh AI-generated questions every day at 00:00 NPT. One attempt per day, and you
-            have {QUESTION_SECONDS} seconds per question — miss the clock and it scores 0.
+            10 fresh AI-generated questions every day at 00:00 NPT. One attempt per day. You get{" "}
+            {QUESTION_SECONDS} seconds for each question once you press Start — miss the clock and
+            it scores 0.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -367,6 +404,26 @@ function DailyQuizPage() {
             {dailyQ.data && dailyQ.data.questions.length === 0 && (
               <p className="text-muted-foreground">No quiz available for today.</p>
             )}
+
+            {!alreadyAttempted && !started && dailyQ.data && totalQuestions > 0 && (
+              <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 text-center">
+                <p className="mx-auto max-w-md text-sm font-medium">
+                  Ready? You'll get <strong>{QUESTION_SECONDS} seconds per question</strong>. The
+                  clock starts when you press Start and resets fresh for each question — so it's one
+                  question at a time.
+                </p>
+                <button
+                  onClick={() => {
+                    setSecondsLeft(QUESTION_SECONDS);
+                    setStarted(true);
+                  }}
+                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-primary-foreground transition hover:scale-105"
+                >
+                  <Clock className="size-4" /> Start quiz
+                </button>
+              </div>
+            )}
+
             {dailyQ.data?.questions.map((q, idx) => {
               const chosen = alreadyAttempted
                 ? dailyQ.data?.attempt?.answers?.[q.id]
@@ -378,17 +435,19 @@ function DailyQuizPage() {
                   idx={idx}
                   locked={alreadyAttempted}
                   submitting={submitting}
+                  active={idx === activeIndex}
+                  started={started}
+                  secondsLeft={secondsLeft}
                   chosen={chosen}
                   correctIdx={correctMap.get(q.id)}
                   explanation={reveals[q.id]?.explanation}
                   expired={!!expired[q.id]}
                   onPick={pickAnswer}
-                  onExpire={handleExpire}
                 />
               );
             })}
 
-            {!alreadyAttempted && dailyQ.data && dailyQ.data.questions.length > 0 && (
+            {!alreadyAttempted && started && dailyQ.data && totalQuestions > 0 && (
               <button
                 onClick={submit}
                 disabled={submitting || resolvedCount !== totalQuestions}
@@ -397,7 +456,7 @@ function DailyQuizPage() {
                 {submitting
                   ? "Submitting…"
                   : resolvedCount !== totalQuestions
-                    ? `Answer all to submit (${resolvedCount}/${totalQuestions} done)`
+                    ? `Finish all questions to submit (${resolvedCount}/${totalQuestions} done)`
                     : "Submit answers"}
               </button>
             )}
@@ -414,99 +473,74 @@ function DailyQuizPage() {
 }
 
 /**
- * One quiz question with its own 15-second countdown. The clock starts the first
- * time the card scrolls into view, stops the moment the player answers, and on
- * zero calls onExpire (parent locks it at 0 and reveals the answer).
+ * Presentational quiz question. The timer is owned by the parent (a single
+ * sequential clock for the active question); this card just shows the running
+ * countdown when it's active, the "Time's up" state when it expired unanswered,
+ * or a muted "up next" badge while it waits its turn.
  */
 function QuestionCard({
   q,
   idx,
   locked,
   submitting,
+  active,
+  started,
+  secondsLeft,
   chosen,
   correctIdx,
   explanation,
   expired,
   onPick,
-  onExpire,
 }: {
   q: DailyQuestion;
   idx: number;
   locked: boolean;
   submitting: boolean;
+  active: boolean;
+  started: boolean;
+  secondsLeft: number;
   chosen: number | undefined;
   correctIdx: number | undefined;
   explanation: string | null | undefined;
   expired: boolean;
   onPick: (qid: string, i: number) => void;
-  onExpire: (qid: string) => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [started, setStarted] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(QUESTION_SECONDS);
-
   const revealed = correctIdx != null;
   const resolved = chosen != null || expired || revealed;
-  const timerActive = !locked && started && !resolved;
-
-  // Start the countdown the first time the card scrolls into view.
-  useEffect(() => {
-    if (locked || started || resolved) return;
-    const el = ref.current;
-    if (!el) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setStarted(true);
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setStarted(true);
-          io.disconnect();
-        }
-      },
-      { threshold: 0.5 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [locked, started, resolved]);
-
-  // Tick down once per second while the clock is running.
-  useEffect(() => {
-    if (!timerActive || secondsLeft <= 0) return;
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(t);
-  }, [timerActive, secondsLeft]);
-
-  // Fire expiry exactly once when the clock hits zero unanswered.
-  useEffect(() => {
-    if (timerActive && secondsLeft <= 0) onExpire(q.id);
-  }, [timerActive, secondsLeft, q.id, onExpire]);
-
-  const showTimer = !locked && !resolved;
+  const ticking = !locked && started && active && !resolved; // its clock is running now
+  const upcoming = !locked && !resolved && !ticking; // hasn't been reached yet / not started
+  const answerable = ticking;
   const low = secondsLeft <= 5;
 
   return (
-    <div ref={ref} className="rounded-2xl border border-border bg-surface p-6 shadow-card">
+    <div
+      className={`rounded-2xl bg-surface p-6 shadow-card transition ${
+        ticking ? "border-2 border-primary ring-2 ring-primary/20" : "border border-border"
+      } ${upcoming ? "opacity-60" : ""}`}
+    >
       <div className="mb-4 flex items-start gap-3">
         <span className="font-display text-lg font-bold text-primary">
           {String(idx + 1).padStart(2, "0")}
         </span>
         <p className="flex-1 text-base font-semibold">{q.question}</p>
-        {showTimer ? (
+        {ticking ? (
           <span
             className={`flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold tabular-nums ${
               low
                 ? "border-magenta/40 bg-magenta/10 text-magenta"
-                : "border-border bg-background text-muted-foreground"
+                : "border-primary/40 bg-primary/10 text-primary"
             }`}
           >
             <Clock className="size-3.5" />
-            {started ? `${secondsLeft}s` : `${QUESTION_SECONDS}s`}
+            {secondsLeft}s
           </span>
         ) : expired && chosen == null ? (
           <span className="flex shrink-0 items-center gap-1 rounded-full border border-magenta/40 bg-magenta/10 px-2.5 py-1 text-xs font-bold text-magenta">
             <Clock className="size-3.5" /> Time's up · 0 pts
+          </span>
+        ) : upcoming ? (
+          <span className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-bold text-muted-foreground">
+            <Clock className="size-3.5" /> {QUESTION_SECONDS}s
           </span>
         ) : null}
       </div>
@@ -518,7 +552,7 @@ function QuestionCard({
           return (
             <button
               key={i}
-              disabled={locked || submitting || expired || revealed}
+              disabled={!answerable || submitting}
               onClick={() => onPick(q.id, i)}
               className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
                 showCorrect
@@ -527,9 +561,9 @@ function QuestionCard({
                     ? "border-magenta bg-magenta/10 text-magenta"
                     : isChosen
                       ? "border-primary bg-primary/5"
-                      : locked || expired
-                        ? "border-border bg-muted text-muted-foreground"
-                        : "border-border bg-background hover:border-primary hover:bg-primary/5"
+                      : answerable
+                        ? "border-border bg-background hover:border-primary hover:bg-primary/5"
+                        : "border-border bg-muted text-muted-foreground"
               }`}
             >
               {opt}

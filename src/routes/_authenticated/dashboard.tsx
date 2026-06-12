@@ -9,7 +9,23 @@ import {
   isTournamentStarted,
   TOURNAMENT_START_UTC,
 } from "@/lib/time";
-import { Trophy, Sparkles, ArrowUpRight, Flame, CalendarClock } from "lucide-react";
+import {
+  Trophy,
+  Sparkles,
+  ArrowUpRight,
+  Flame,
+  CalendarClock,
+  PlayCircle,
+  Youtube,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard · Focus World Cup Pool" }] }),
@@ -18,6 +34,25 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 const ENTRY_FEE = 1000;
 const MAX_PICKS = 3;
+
+// Verified official (FOX Sports) YouTube highlight clips, keyed by the two team
+// codes of a finished match. Researched per match; any finished match not listed
+// here falls back to a YouTube search link in the popup. Lookup is order-
+// independent (A-B or B-A). Add new entries as matches finish.
+const MATCH_HIGHLIGHTS: Record<string, string> = {
+  "MEX-RSA": "r1Afsds3ZD0", // Mexico 2-0 South Africa — FOX Sports
+  "KOR-CZE": "QWoDfCkh7f8", // South Korea 2-1 Czechia — FOX Sports
+};
+
+function highlightVideoId(codeA?: string, codeB?: string): string | null {
+  if (!codeA || !codeB) return null;
+  return MATCH_HIGHLIGHTS[`${codeA}-${codeB}`] ?? MATCH_HIGHLIGHTS[`${codeB}-${codeA}`] ?? null;
+}
+
+function youtubeSearchUrl(nameA?: string, nameB?: string): string {
+  const q = `${nameA ?? "Team A"} vs ${nameB ?? "Team B"} 2026 World Cup highlights`;
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+}
 
 type LeaderboardPick = {
   bet_id: string;
@@ -401,7 +436,75 @@ function MatchCard({ match }: { match: any }) {
           {match.score_a} — {match.score_b}
         </div>
       )}
+      {finished && <MatchHighlights match={match} />}
     </div>
+  );
+}
+
+/** Compact "Highlights" button → popup that embeds the match highlights. */
+function MatchHighlights({ match }: { match: any }) {
+  const a = match.team_a;
+  const b = match.team_b;
+  const videoId = highlightVideoId(a?.code, b?.code);
+  const hasScore = match.score_a != null && match.score_b != null;
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-xs font-bold text-foreground transition hover:border-primary hover:bg-primary/5">
+          <PlayCircle className="size-4 text-primary" /> Highlights
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <PlayCircle className="size-5 text-primary" />
+            {a?.name ?? "TBD"} vs {b?.name ?? "TBD"}
+            {hasScore && (
+              <span className="text-muted-foreground">
+                · {match.score_a}–{match.score_b}
+              </span>
+            )}
+          </DialogTitle>
+          <DialogDescription>Match highlights</DialogDescription>
+        </DialogHeader>
+        {videoId ? (
+          <div className="space-y-3">
+            <div className="relative aspect-video overflow-hidden rounded-xl border border-border bg-night">
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0`}
+                title={`${a?.name ?? "Team A"} vs ${b?.name ?? "Team B"} highlights`}
+                className="absolute inset-0 size-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+            <a
+              href={`https://www.youtube.com/watch?v=${videoId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+            >
+              <Youtube className="size-4" /> Watch on YouTube
+            </a>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-surface p-8 text-center">
+            <Youtube className="size-9 text-muted-foreground" />
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Highlights for this match aren't embedded yet — find the latest clips on YouTube.
+            </p>
+            <a
+              href={youtubeSearchUrl(a?.name, b?.name)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:scale-105"
+            >
+              <Youtube className="size-4" /> Search highlights on YouTube
+            </a>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
