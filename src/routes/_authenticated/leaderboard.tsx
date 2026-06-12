@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { TeamPopularity } from "@/components/TeamPopularity";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({ meta: [{ title: "Leaderboard · Focus World Cup Pool" }] }),
@@ -53,6 +54,8 @@ function LeaderboardPage() {
           Points update automatically as results come in. Each player backs 1–3 teams.
         </p>
       </header>
+
+      <TeamPopularity />
 
       <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
         <table className="w-full text-sm">

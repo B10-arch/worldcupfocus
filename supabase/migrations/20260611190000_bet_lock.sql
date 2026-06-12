@@ -3,7 +3,7 @@
 -- (app server function OR a direct PostgREST call). The app's RLS otherwise lets
 -- a user write their own bets, so a UI-only check was bypassable.
 --
--- Deadline: 23:59 NPT on 2026-06-11 == 18:14 UTC. Keep in sync with
+-- Deadline: 22:00 NPT on 2026-06-12 == 16:15 UTC. Keep in sync with
 -- BET_LOCK_UTC in src/lib/time.ts.
 --
 -- Admins and service-role (auth.uid() IS NULL) are exempt, so admin fixes and
@@ -18,8 +18,8 @@ AS $$
 BEGIN
   IF auth.uid() IS NOT NULL
      AND NOT public.has_role(auth.uid(), 'admin')
-     AND now() >= TIMESTAMPTZ '2026-06-11 18:14:00+00' THEN
-    RAISE EXCEPTION 'Picks are locked — the 23:59 NPT deadline has passed.'
+     AND now() >= TIMESTAMPTZ '2026-06-12 16:15:00+00' THEN
+    RAISE EXCEPTION 'Picks are locked — the 22:00 NPT deadline has passed.'
       USING ERRCODE = 'check_violation';
   END IF;
   RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
