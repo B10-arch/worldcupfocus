@@ -307,17 +307,52 @@ function Dashboard() {
             <Trophy className="size-5 text-primary" />
             <h2 className="font-display text-xl font-bold text-primary">Pool rules</h2>
           </div>
-          <ul className="mt-6 space-y-3 text-sm">
-            <li className="flex gap-3">
-              <span className="font-display text-primary">01</span>
-              Back <strong>exactly {MAX_PICKS} different teams</strong> at Rs.{" "}
-              {formatNPR(ENTRY_FEE)} each — Rs. {formatNPR(ENTRY_FEE * MAX_PICKS)} total.
-            </li>
-            <li className="flex gap-3">
-              <span className="font-display text-primary">02</span>
-              For each team, all backers <strong>split that team's pot equally</strong>.
-            </li>
-          </ul>
+          <p className="mt-4 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            How it works
+          </p>
+          <dl className="mt-4 space-y-4 text-sm">
+            <div>
+              <dt className="font-bold">Entry fee</dt>
+              <dd className="text-muted-foreground">
+                Rs. {formatNPR(ENTRY_FEE)} per team you select.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-bold">Team limit</dt>
+              <dd className="text-muted-foreground">
+                You may select a maximum of {MAX_PICKS} teams. Your deposit is Rs.{" "}
+                {formatNPR(ENTRY_FEE)} × the number of teams you back:
+              </dd>
+              <ul className="mt-2 space-y-1">
+                {Array.from({ length: MAX_PICKS }, (_, i) => i + 1).map((n) => (
+                  <li
+                    key={n}
+                    className="flex items-center justify-between rounded-lg bg-background px-3 py-1.5 text-xs"
+                  >
+                    <span className="font-medium">
+                      {n} team{n === 1 ? "" : "s"}
+                    </span>
+                    <span className="font-bold text-primary">Rs. {formatNPR(ENTRY_FEE * n)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <dt className="font-bold">The prize pool</dt>
+              <dd className="text-muted-foreground">
+                All collected entry fees for a specific team are combined to form that team's total
+                prize pool.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-bold">The payout</dt>
+              <dd className="text-muted-foreground">
+                If your selected team wins the World Cup, you win! If two or more participants
+                selected the same winning team, that team's total accumulated prize pool is split
+                equally among the winners.
+              </dd>
+            </div>
+          </dl>
         </div>
       </section>
     </div>
