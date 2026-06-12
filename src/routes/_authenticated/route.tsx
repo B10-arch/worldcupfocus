@@ -36,20 +36,26 @@ export const Route = createFileRoute("/_authenticated")({
   // Show the spinner quickly instead of a blank screen while the guard runs.
   pendingMs: 150,
   pendingComponent: AuthPending,
-  beforeLoad: async ({ location }) => {
+  beforeLoad: async ({ location, context }) => {
     const session = await resolveSession();
     if (!session) throw redirect({ to: "/login" });
     const user = session.user;
 
-    // Force new users to choose at least one team before reaching the rest of the app.
+    // Force new users to choose at least one team before reaching the rest of
+    // the app. Cache the check (60s) so it isn't re-queried on every navigation.
     if (location.pathname !== "/bet") {
-      const { count } = await supabase
-        .from("bets")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id);
-      if (!count || count < 1) {
-        throw redirect({ to: "/bet" });
-      }
+      const hasBet = await context.queryClient.ensureQueryData({
+        queryKey: ["has-bet", user.id],
+        staleTime: 60_000,
+        queryFn: async () => {
+          const { count } = await supabase
+            .from("bets")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", user.id);
+          return (count ?? 0) > 0;
+        },
+      });
+      if (!hasBet) throw redirect({ to: "/bet" });
     }
 
     return { user };

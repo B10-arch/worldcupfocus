@@ -106,6 +106,7 @@ function BetPage() {
         }`,
       );
       qc.invalidateQueries({ queryKey: picksKey }); // reconcile real row in background
+      qc.invalidateQueries({ queryKey: ["has-bet", user.id] }); // unblock navigation after first pick
     } catch (err) {
       qc.setQueryData(picksKey, prev); // rollback on failure
       toast.error(err instanceof Error ? err.message : "Could not save pick");
@@ -127,6 +128,7 @@ function BetPage() {
       await removeFn({ data: { teamId } });
       toast.message("Pick removed");
       qc.invalidateQueries({ queryKey: picksKey });
+      qc.invalidateQueries({ queryKey: ["has-bet", user.id] });
     } catch (err) {
       qc.setQueryData(picksKey, prev); // rollback on failure
       toast.error(err instanceof Error ? err.message : "Could not remove pick");
