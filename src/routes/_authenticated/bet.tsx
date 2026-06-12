@@ -33,6 +33,21 @@ function BetPage() {
   const [search, setSearch] = useState("");
   const locked = isBetLocked();
 
+  // Participants who have already chosen are frozen — their picks are final.
+  const lockState = useQuery({
+    queryKey: ["picks-locked", user.id],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("profiles")
+        .select("picks_locked")
+        .eq("id", user.id)
+        .maybeSingle();
+      return !!data?.picks_locked;
+    },
+  });
+  const picksFinal = !!lockState.data;
+  const frozen = locked || picksFinal;
+
   const teams = useQuery({
     queryKey: ["teams", "all"],
     queryFn: async () =>
@@ -61,7 +76,7 @@ function BetPage() {
   const picksKey = ["my-picks", user.id];
 
   async function handleAdd(teamId: string) {
-    if (locked) return;
+    if (frozen) return;
     // Read the live cache (not the render-time closure) so fast successive clicks
     // are counted accurately and never optimistically exceed the max.
     const prev = qc.getQueryData<Pick[]>(picksKey) ?? [];
@@ -100,7 +115,7 @@ function BetPage() {
   }
 
   async function handleRemove(teamId: string) {
-    if (locked) return;
+    if (frozen) return;
     const prev = qc.getQueryData<Pick[]>(picksKey) ?? [];
     // Optimistic: drop the pick immediately.
     qc.setQueryData(
@@ -121,9 +136,11 @@ function BetPage() {
   }
 
   const picksCount = myPicks.data?.length ?? 0;
-  const lockNotice = locked
-    ? `Picks locked at ${formatNPTFull(BET_LOCK_UTC)} — your teams are final.`
-    : `You can back 1 to ${MAX_PICKS} teams and change them until ${formatNPTFull(BET_LOCK_UTC)}.`;
+  const lockNotice = picksFinal
+    ? "Your team picks are final and can no longer be changed."
+    : locked
+      ? `Picks locked at ${formatNPTFull(BET_LOCK_UTC)} — your teams are final.`
+      : `You can back 1 to ${MAX_PICKS} teams and change them until ${formatNPTFull(BET_LOCK_UTC)}.`;
 
   return (
     <div className="space-y-8">
@@ -135,7 +152,7 @@ function BetPage() {
           {formatNPR(ENTRY_FEE * MAX_PICKS)} total). Each pick earns points independently; share the
           per-team pot with anyone else backing the same nation.
         </p>
-        {picksCount >= 1 && !locked && (
+        {picksCount >= 1 && (
           <div className="mt-4">
             <button
               onClick={() => router.navigate({ to: "/dashboard" })}
@@ -150,11 +167,11 @@ function BetPage() {
 
       <div
         className={`flex items-start gap-3 rounded-2xl border p-4 text-sm ${
-          locked ? "border-magenta/30 bg-magenta/5" : "border-primary/30 bg-primary/5"
+          frozen ? "border-magenta/30 bg-magenta/5" : "border-primary/30 bg-primary/5"
         }`}
         title={lockNotice}
       >
-        <Lock className={`mt-0.5 size-4 ${locked ? "text-magenta" : "text-primary"}`} />
+        <Lock className={`mt-0.5 size-4 ${frozen ? "text-magenta" : "text-primary"}`} />
         <p>{lockNotice}</p>
       </div>
 
@@ -164,7 +181,7 @@ function BetPage() {
           <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             Your picks ({myPicks.data?.length ?? 0}/{MAX_PICKS})
           </p>
-          {remaining > 0 && !locked && (
+          {remaining > 0 && !frozen && (
             <span className="text-xs text-primary">Add up to {remaining} more (optional)</span>
           )}
         </div>
@@ -176,7 +193,7 @@ function BetPage() {
             >
               <span className="text-lg">{p.team?.flag_emoji}</span>
               {p.team?.name}
-              {!locked && (
+              {!frozen && (
                 <button
                   onClick={() => handleRemove(p.team_id)}
                   disabled={busyTeamId === p.team_id}
@@ -207,14 +224,14 @@ function BetPage() {
         {filtered.map((t) => {
           const isPicked = pickedIds.has(t.id);
           const underdog = t.fifa_rank != null && t.fifa_rank > 15;
-          const disabled = locked || (!isPicked && remaining <= 0);
+          const disabled = frozen || (!isPicked && remaining <= 0);
           return (
             <button
               key={t.id}
               onClick={() => (isPicked ? handleRemove(t.id) : handleAdd(t.id))}
               disabled={disabled || busyTeamId === t.id}
               title={
-                locked
+                frozen
                   ? lockNotice
                   : isPicked
                     ? "Click to remove"
