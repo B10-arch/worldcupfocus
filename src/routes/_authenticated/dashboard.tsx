@@ -35,13 +35,15 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 const ENTRY_FEE = 1000;
 const MAX_PICKS = 3;
 
-// Verified official (FOX Sports) YouTube highlight clips, keyed by the two team
-// codes of a finished match. Researched per match; any finished match not listed
-// here falls back to a YouTube search link in the popup. Lookup is order-
-// independent (A-B or B-A). Add new entries as matches finish.
+// YouTube highlight clips, keyed by the two team codes of a finished match. Any
+// finished match not listed falls back to a YouTube search link in the popup.
+// Lookup is order-independent (A-B or B-A). NOTE: pick globally-available,
+// embeddable uploads — official broadcaster clips (e.g. FOX Sports) are usually
+// region-locked to a few countries and won't play for our (Nepal) audience.
+// Each ID below is verified embeddable and available in 249 countries incl. NP.
 const MATCH_HIGHLIGHTS: Record<string, string> = {
-  "MEX-RSA": "r1Afsds3ZD0", // Mexico 2-0 South Africa — FOX Sports
-  "KOR-CZE": "QWoDfCkh7f8", // South Korea 2-1 Czechia — FOX Sports
+  "MEX-RSA": "ohaVwXIp6TA", // Mexico 2-0 South Africa
+  "KOR-CZE": "JCwfknbOKgA", // South Korea 2-1 Czechia
 };
 
 function highlightVideoId(codeA?: string, codeB?: string): string | null {
