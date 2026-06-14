@@ -8,10 +8,20 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-// Highlights are set per match by an admin (matches.highlights_url) — see
-// MatchHighlightsAdmin. Curated by hand because no source reliably gives real,
-// region-playable highlights per match (official broadcaster clips are geo-locked;
-// most globally-available uploads are FIFA-game simulations).
+// Per-match highlights, keyed by team codes (order-independent). This code map is
+// the source until/unless an admin sets matches.highlights_url in the DB, which
+// then takes precedence (see MatchHighlightsAdmin). Curated by hand: no source
+// reliably gives real, Nepal-playable, embeddable highlights per match (official
+// broadcaster clips are geo-locked; many global uploads are FIFA-game sims or
+// have embedding disabled). Each entry below is verified embeddable.
+const HIGHLIGHTS: Record<string, string> = {
+  "MEX-RSA": "https://www.youtube.com/watch?v=DjYkkRPqV18", // Mexico 2-0 SA — DD India (real, NP)
+  "KOR-CZE": "https://www.youtube.com/watch?v=KoRu-I4oqf4", // South Korea 2-1 Czechia (embeddable)
+};
+function fallbackHighlight(codeA?: string, codeB?: string): string {
+  if (!codeA || !codeB) return "";
+  return HIGHLIGHTS[`${codeA}-${codeB}`] ?? HIGHLIGHTS[`${codeB}-${codeA}`] ?? "";
+}
 
 // Turn a pasted YouTube/share/embed URL into an embeddable iframe src. Returns
 // null when nothing usable is set (popup then shows a search link).
@@ -40,7 +50,9 @@ function youtubeSearchUrl(nameA?: string, nameB?: string): string {
 export function MatchHighlights({ match, compact = false }: { match: any; compact?: boolean }) {
   const a = match.team_a;
   const b = match.team_b;
-  const embedUrl = toEmbedUrl(match.highlights_url);
+  // DB value (if the column exists and is set) wins; otherwise the code map.
+  const url = (match.highlights_url ?? "").trim() || fallbackHighlight(a?.code, b?.code);
+  const embedUrl = toEmbedUrl(url);
   const hasScore = match.score_a != null && match.score_b != null;
   return (
     <Dialog>
@@ -83,7 +95,7 @@ export function MatchHighlights({ match, compact = false }: { match: any; compac
               />
             </div>
             <a
-              href={(match.highlights_url ?? "").trim()}
+              href={url}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"

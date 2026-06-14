@@ -83,12 +83,14 @@ export function MatchHighlightsAdmin() {
       </p>
 
       {error && (
-        <div className="mt-4 rounded-xl border border-magenta/40 bg-magenta/10 p-3 text-sm text-magenta">
+        <div className="mt-4 rounded-xl border border-border bg-muted/50 p-3 text-sm text-muted-foreground">
           {missingColumn ? (
             <>
-              The <code>highlights_url</code> column isn&apos;t in the database yet. Run the
-              migration SQL (supabase/migrations/20260612020000_match_highlights.sql) in the
-              Supabase SQL Editor, then refresh this page.
+              <strong className="text-foreground">In-app editing isn&apos;t enabled yet.</strong>{" "}
+              Highlights are currently managed in code and already show on the Dashboard and Matches
+              pages. To edit them here, add the <code>highlights_url</code> column by running{" "}
+              <code>supabase/migrations/20260612020000_match_highlights.sql</code> in the Supabase
+              SQL Editor, then refresh. (Until then, just tell Claude which video to use per match.)
             </>
           ) : (
             <>Couldn&apos;t load matches: {(error as Error).message}</>
