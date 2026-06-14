@@ -73,11 +73,23 @@ function WatchPage() {
 
       {url ? (
         ll ? (
-          // Lineups flank the player on wide screens; stack (player first) below xl.
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_minmax(0,15rem)] xl:items-start">
-            <LineupPanel team={ll.home} clock={ll.clock} className="order-2 xl:order-1" />
-            <div className="order-1 xl:order-2">{playerCard}</div>
-            <LineupPanel team={ll.away} clock={ll.clock} className="order-3 xl:order-3" />
+          // Keep the player at full size. Lineups flank it only when the screen is
+          // wide enough to fit them in the outer margins (≥1800px, full-bleed);
+          // otherwise they wrap below the player so it never shrinks.
+          <div className="flex flex-wrap items-start justify-center gap-4 min-[1800px]:mx-[calc(50%-50vw)] min-[1800px]:flex-nowrap min-[1800px]:px-6">
+            <div className="order-1 w-full max-w-7xl min-[1800px]:order-2 min-[1800px]:w-auto min-[1800px]:flex-1">
+              {playerCard}
+            </div>
+            <LineupPanel
+              team={ll.home}
+              clock={ll.clock}
+              className="order-2 w-full sm:w-[calc(50%-0.5rem)] min-[1800px]:order-1 min-[1800px]:w-56 min-[1800px]:shrink-0"
+            />
+            <LineupPanel
+              team={ll.away}
+              clock={ll.clock}
+              className="order-3 w-full sm:w-[calc(50%-0.5rem)] min-[1800px]:order-3 min-[1800px]:w-56 min-[1800px]:shrink-0"
+            />
           </div>
         ) : (
           playerCard
