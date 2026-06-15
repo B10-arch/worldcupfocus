@@ -73,70 +73,55 @@ function Section({
   return (
     <section>
       <h3 className="mb-1 font-display text-xl font-bold">{title}</h3>
-      {subtitle && <p className="mb-4 text-xs text-muted-foreground">{subtitle}</p>}
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
-        <table className="w-full text-sm">
-          <thead className="bg-muted text-left text-[10px] uppercase tracking-widest text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">NPT</th>
-              <th className="px-4 py-3">Match</th>
-              <th className="px-4 py-3">Stage</th>
-              <th className="px-4 py-3">Venue</th>
-              <th className="px-4 py-3 text-right">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {list.map((m) => {
-              const played = m.status === "finished";
-              return (
-                <tr key={m.id} className="hover:bg-muted/50">
-                  <td className="px-4 py-4 font-mono font-bold">
-                    {hideTime ? (
-                      <span className="text-muted-foreground">TBC</span>
-                    ) : (
-                      formatNPT(m.kickoff_utc)
-                    )}
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">{m.team_a?.flag_emoji ?? "🏳️"}</span>
-                      <span className="font-semibold">{m.team_a?.name ?? "TBD"}</span>
-                      <span className="text-muted-foreground">vs</span>
-                      <span className="font-semibold">{m.team_b?.name ?? "TBD"}</span>
-                      <span className="text-xl">{m.team_b?.flag_emoji ?? "🏳️"}</span>
-                      {played && (
-                        <span className="ml-2 rounded bg-muted px-2 py-0.5 font-mono text-xs font-bold">
-                          {m.score_a}–{m.score_b}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-xs uppercase text-muted-foreground">
-                    {m.stage === "group" ? `Group ${m.group_name}` : m.stage.toUpperCase()}
-                  </td>
-                  <td className="px-4 py-4 text-xs text-muted-foreground">{m.venue ?? "TBC"}</td>
-                  <td className="px-4 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {m.status === "live" ? (
-                        <span className="rounded-full bg-magenta/10 px-2 py-0.5 text-xs font-bold text-magenta">
-                          LIVE
-                        </span>
-                      ) : played ? (
-                        <span className="text-xs font-bold text-muted-foreground">FT</span>
-                      ) : (
-                        <span className="text-xs font-bold text-primary">Upcoming</span>
-                      )}
-                      {(played || (m.highlights_url ?? "").trim()) && (
-                        <MatchHighlights match={m} compact />
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {subtitle && <p className="mb-3 text-xs text-muted-foreground">{subtitle}</p>}
+      <div className="space-y-2">
+        {list.map((m) => (
+          <MatchRow key={m.id} m={m} hideTime={hideTime} />
+        ))}
       </div>
     </section>
+  );
+}
+
+/** A single match as a responsive card: meta + status on top, teams below. */
+function MatchRow({ m, hideTime }: { m: any; hideTime?: boolean }) {
+  const played = m.status === "finished";
+  const stage = m.stage === "group" ? `Group ${m.group_name}` : String(m.stage).toUpperCase();
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-3 shadow-card sm:px-4">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          {hideTime ? "Time TBC" : formatNPT(m.kickoff_utc)} · {stage}
+          {m.venue ? ` · ${m.venue}` : ""}
+        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          {m.status === "live" ? (
+            <span className="rounded-full bg-magenta/10 px-2 py-0.5 text-[10px] font-bold text-magenta">
+              LIVE
+            </span>
+          ) : played ? (
+            <span className="text-[10px] font-bold text-muted-foreground">FT</span>
+          ) : (
+            <span className="text-[10px] font-bold text-primary">UPCOMING</span>
+          )}
+          {(played || (m.highlights_url ?? "").trim()) && <MatchHighlights match={m} compact />}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-2xl">{m.team_a?.flag_emoji ?? "🏳️"}</span>
+        <span className="min-w-0 flex-1 truncate font-semibold">{m.team_a?.name ?? "TBD"}</span>
+        {played ? (
+          <span className="shrink-0 rounded bg-muted px-2 py-0.5 font-mono text-sm font-bold">
+            {m.score_a}–{m.score_b}
+          </span>
+        ) : (
+          <span className="shrink-0 px-1 text-xs text-muted-foreground">vs</span>
+        )}
+        <span className="min-w-0 flex-1 truncate text-right font-semibold">
+          {m.team_b?.name ?? "TBD"}
+        </span>
+        <span className="text-2xl">{m.team_b?.flag_emoji ?? "🏳️"}</span>
+      </div>
+    </div>
   );
 }
