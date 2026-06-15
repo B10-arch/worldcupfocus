@@ -58,6 +58,14 @@ function WatchPage() {
 
   const url = (stream?.embed_url ?? "").trim();
   const title = (stream?.title ?? "").trim();
+  // embed_url may hold a primary + backup feed (one URL per line); viewers can
+  // switch between them if one isn't loading.
+  const feeds = url
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const [feedIdx, setFeedIdx] = useState(0);
+  const activeUrl = feeds[feedIdx] ?? feeds[0] ?? "";
 
   const now = Date.now();
   // A match is "on air" if it's live, or it's a scheduled match whose kickoff
@@ -77,7 +85,8 @@ function WatchPage() {
     <div className="overflow-hidden rounded-3xl border border-border bg-night shadow-card">
       <div className="relative aspect-video">
         <iframe
-          src={url}
+          key={activeUrl}
+          src={activeUrl}
           title={title || "Live match"}
           className="absolute inset-0 size-full"
           allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
@@ -117,7 +126,20 @@ function WatchPage() {
       </header>
 
       {onAir && url ? (
-        playerCard
+        <div className="space-y-3">
+          {playerCard}
+          {feeds.length > 1 && (
+            <p className="text-center text-sm text-muted-foreground">
+              Stream not loading?{" "}
+              <button
+                onClick={() => setFeedIdx((i) => (i + 1) % feeds.length)}
+                className="font-bold text-primary hover:underline"
+              >
+                Switch feed ({feedIdx + 1}/{feeds.length})
+              </button>
+            </p>
+          )}
+        </div>
       ) : next ? (
         <CountdownCard match={next} />
       ) : onAir && !url ? (

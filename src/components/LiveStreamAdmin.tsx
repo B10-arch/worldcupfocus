@@ -6,7 +6,11 @@ import { Tv } from "lucide-react";
 
 type LiveStream = { embed_url: string; title: string };
 
-/** Admin control to set the Watch-page live stream (embed URL + title). */
+/**
+ * Admin control for the Watch-page live stream. Stores a primary + optional
+ * backup embed URL (one per line) in the single embed_url field, so viewers can
+ * switch feeds if the primary isn't loading — no schema change needed.
+ */
 export function LiveStreamAdmin() {
   const qc = useQueryClient();
   const { data } = useQuery({
@@ -21,31 +25,41 @@ export function LiveStreamAdmin() {
     },
   });
 
-  const [url, setUrl] = useState("");
+  const [primary, setPrimary] = useState("");
+  const [backup, setBackup] = useState("");
   const [title, setTitle] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (data) {
-      setUrl(data.embed_url ?? "");
+      const lines = (data.embed_url ?? "")
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      setPrimary(lines[0] ?? "");
+      setBackup(lines[1] ?? "");
       setTitle(data.title ?? "");
     }
   }, [data]);
 
-  async function save(nextUrl: string, nextTitle: string) {
+  async function save(p: string, b: string, nextTitle: string) {
+    const combined = [p.trim(), b.trim()].filter(Boolean).join("\n");
     setSaving(true);
     const { error } = await (supabase as any)
       .from("live_stream")
-      .update({ embed_url: nextUrl.trim(), title: nextTitle.trim() })
+      .update({ embed_url: combined, title: nextTitle.trim() })
       .eq("id", true);
     setSaving(false);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success(nextUrl.trim() ? "Live stream updated" : "Live stream cleared");
+    toast.success(combined ? "Live stream updated" : "Live stream cleared");
     qc.invalidateQueries({ queryKey: ["live-stream"] });
   }
+
+  const inputClass =
+    "w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring";
 
   return (
     <div className="rounded-3xl border border-border bg-surface p-6 shadow-card">
@@ -55,35 +69,52 @@ export function LiveStreamAdmin() {
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
         Paste an embed URL you are <strong>licensed</strong> to use — e.g. an official FIFA+ or
-        broadcaster player. It shows on the Watch page for everyone. Leave blank to hide the player.
-        Don&apos;t use unauthorized re-streams.
+        broadcaster player. Add a <strong>backup URL</strong> too; viewers can switch to it on the
+        Watch page if the primary isn&apos;t loading. Leave both blank to hide the player.
       </p>
       <div className="mt-4 space-y-3">
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Title (e.g. Mexico vs South Africa)"
-          className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+          placeholder="Title (e.g. Spain vs Cape Verde)"
+          className={inputClass}
         />
-        <input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://… embed URL"
-          className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-        />
+        <label className="block">
+          <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Primary stream URL
+          </span>
+          <input
+            value={primary}
+            onChange={(e) => setPrimary(e.target.value)}
+            placeholder="https://… primary embed URL"
+            className={inputClass}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Backup stream URL (optional)
+          </span>
+          <input
+            value={backup}
+            onChange={(e) => setBackup(e.target.value)}
+            placeholder="https://… backup embed URL"
+            className={inputClass}
+          />
+        </label>
         <div className="flex gap-2">
           <button
-            onClick={() => save(url, title)}
+            onClick={() => save(primary, backup, title)}
             disabled={saving}
             className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save"}
           </button>
-          {url && (
+          {(primary || backup) && (
             <button
               onClick={() => {
-                setUrl("");
-                save("", title);
+                setPrimary("");
+                setBackup("");
+                save("", "", title);
               }}
               disabled={saving}
               className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold transition hover:bg-secondary disabled:opacity-50"
