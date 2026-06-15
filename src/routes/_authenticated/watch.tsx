@@ -5,9 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatNPTFull } from "@/lib/time";
 import { Tv, Trophy } from "lucide-react";
 
-// Height of the branded bar that overlays (masks) the provider's own top nav —
-// e.g. the "Movish" logo + menu — so only our branding shows.
-const NAV_MASK = "4rem";
 // A scheduled match whose kickoff passed within this window is treated as on-air
 // (covers any lag before the sync flips its status to "live").
 const MATCH_WINDOW_MS = 2.5 * 60 * 60 * 1000;
@@ -97,22 +94,6 @@ function WatchPage() {
           allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
           allowFullScreen
         />
-        {/* Branded bar overlays the provider's top nav (e.g. the Movish logo +
-            menu) so only our branding is visible. */}
-        <div
-          className="absolute inset-x-0 top-0 z-10 flex items-center gap-3 px-4"
-          style={{ height: NAV_MASK, backgroundImage: "var(--gradient-night)" }}
-        >
-          <div
-            className="flex size-9 shrink-0 items-center justify-center rounded-xl text-white shadow-glow"
-            style={{ backgroundImage: "var(--gradient-brand)" }}
-          >
-            <Trophy className="size-5" />
-          </div>
-          <span className="font-display text-lg font-bold tracking-tight text-white">
-            Focus <span className="text-primary">World Cup</span> Live
-          </span>
-        </div>
       </div>
     </div>
   );
