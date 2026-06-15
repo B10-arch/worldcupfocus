@@ -3,6 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tv, Trophy } from "lucide-react";
 
+// Height of the branded bar that overlays (masks) the provider's own top nav —
+// e.g. the "Movish" logo + menu — so only our branding shows. Tune if the
+// provider's header height changes.
+const NAV_MASK = "4rem";
+
 export const Route = createFileRoute("/_authenticated/watch")({
   head: () => ({ meta: [{ title: "Watch Live · Focus World Cup Pool" }] }),
   component: WatchPage,
@@ -29,22 +34,6 @@ function WatchPage() {
 
   const playerCard = (
     <div className="overflow-hidden rounded-3xl border border-border bg-night shadow-card">
-      {/* Branded header sits ABOVE the player so it never covers the
-          broadcast's own scoreboard / match clock at the top of the video. */}
-      <div
-        className="flex items-center gap-3 px-4 py-3"
-        style={{ backgroundImage: "var(--gradient-night)" }}
-      >
-        <div
-          className="flex size-9 shrink-0 items-center justify-center rounded-xl text-white shadow-glow"
-          style={{ backgroundImage: "var(--gradient-brand)" }}
-        >
-          <Trophy className="size-5" />
-        </div>
-        <span className="font-display text-lg font-bold tracking-tight text-white">
-          Focus <span className="text-primary">World Cup</span> Live
-        </span>
-      </div>
       <div className="relative aspect-video">
         <iframe
           src={url}
@@ -53,6 +42,22 @@ function WatchPage() {
           allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
           allowFullScreen
         />
+        {/* Branded bar overlays the provider's top nav (e.g. the Movish logo +
+            menu) so only our branding is visible. */}
+        <div
+          className="absolute inset-x-0 top-0 z-10 flex items-center gap-3 px-4"
+          style={{ height: NAV_MASK, backgroundImage: "var(--gradient-night)" }}
+        >
+          <div
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl text-white shadow-glow"
+            style={{ backgroundImage: "var(--gradient-brand)" }}
+          >
+            <Trophy className="size-5" />
+          </div>
+          <span className="font-display text-lg font-bold tracking-tight text-white">
+            Focus <span className="text-primary">World Cup</span> Live
+          </span>
+        </div>
       </div>
     </div>
   );
