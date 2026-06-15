@@ -58,12 +58,17 @@ function WatchPage() {
 
   const url = (stream?.embed_url ?? "").trim();
   const title = (stream?.title ?? "").trim();
-  // embed_url may hold a primary + backup feed (one URL per line); viewers can
-  // switch between them if one isn't loading.
-  const feeds = url
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  // embed_url may hold a primary + backup feed; viewers can switch between them.
+  // Split on whitespace and on each "http(s)://" boundary so feeds parse cleanly
+  // even if two URLs ended up mashed together.
+  const feeds = [
+    ...new Set(
+      url
+        .split(/\s+|(?=https?:\/\/)/)
+        .map((s) => s.trim())
+        .filter((s) => /^https?:\/\//.test(s)),
+    ),
+  ];
   const [feedIdx, setFeedIdx] = useState(0);
   const activeUrl = feeds[feedIdx] ?? feeds[0] ?? "";
 

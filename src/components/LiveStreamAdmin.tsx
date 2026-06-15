@@ -42,8 +42,16 @@ export function LiveStreamAdmin() {
     }
   }, [data]);
 
+  // Pull clean http(s) URLs out of a field, even if two got pasted together
+  // (split on whitespace and on each "http(s)://" boundary).
+  const urlsOf = (s: string) =>
+    s
+      .split(/\s+|(?=https?:\/\/)/)
+      .map((x) => x.trim())
+      .filter((x) => /^https?:\/\//.test(x));
+
   async function save(p: string, b: string, nextTitle: string) {
-    const combined = [p.trim(), b.trim()].filter(Boolean).join("\n");
+    const combined = [...new Set([...urlsOf(p), ...urlsOf(b)])].join("\n");
     setSaving(true);
     const { error } = await (supabase as any)
       .from("live_stream")
