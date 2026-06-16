@@ -90,7 +90,7 @@ function MatchRow({ m, hideTime }: { m: any; hideTime?: boolean }) {
   return (
     <div className="rounded-2xl border border-border bg-surface p-3 shadow-card sm:px-4">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+        <span className="min-w-0 truncate text-xs font-extrabold uppercase tracking-wide text-foreground">
           {hideTime ? "Time TBC" : formatNPT(m.kickoff_utc)} · {stage}
           {m.venue ? ` · ${m.venue}` : ""}
         </span>

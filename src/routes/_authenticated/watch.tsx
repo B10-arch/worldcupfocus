@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPTFull } from "@/lib/time";
+import { feedsForLiveMatch } from "@/lib/streams";
 import { Tv, Trophy } from "lucide-react";
 
 // A scheduled match whose kickoff passed within this window is treated as on-air
@@ -18,8 +19,8 @@ type LiveStream = { embed_url: string; title: string };
 type WatchMatch = {
   status: string;
   kickoff_utc: string;
-  team_a: { name: string | null; flag_emoji: string | null } | null;
-  team_b: { name: string | null; flag_emoji: string | null } | null;
+  team_a: { name: string | null; flag_emoji: string | null; code: string | null } | null;
+  team_b: { name: string | null; flag_emoji: string | null; code: string | null } | null;
 };
 
 function WatchPage() {
@@ -44,7 +45,7 @@ function WatchPage() {
       const { data } = await (supabase as any)
         .from("matches")
         .select(
-          "status, kickoff_utc, team_a:teams!matches_team_a_id_fkey(name, flag_emoji), team_b:teams!matches_team_b_id_fkey(name, flag_emoji)",
+          "status, kickoff_utc, team_a:teams!matches_team_a_id_fkey(name, flag_emoji, code), team_b:teams!matches_team_b_id_fkey(name, flag_emoji, code)",
         )
         .neq("status", "finished")
         .order("kickoff_utc", { ascending: true })
@@ -55,19 +56,6 @@ function WatchPage() {
 
   const url = (stream?.embed_url ?? "").trim();
   const title = (stream?.title ?? "").trim();
-  // embed_url may hold a primary + backup feed; viewers can switch between them.
-  // Split on whitespace and on each "http(s)://" boundary so feeds parse cleanly
-  // even if two URLs ended up mashed together.
-  const feeds = [
-    ...new Set(
-      url
-        .split(/\s+|(?=https?:\/\/)/)
-        .map((s) => s.trim())
-        .filter((s) => /^https?:\/\//.test(s)),
-    ),
-  ];
-  const [feedIdx, setFeedIdx] = useState(0);
-  const activeUrl = feeds[feedIdx] ?? feeds[0] ?? "";
 
   const now = Date.now();
   // A match is "on air" if it's live, or it's a scheduled match whose kickoff
@@ -82,6 +70,12 @@ function WatchPage() {
   const next = (matches ?? []).find(
     (m) => m.status === "scheduled" && Date.parse(m.kickoff_utc) > now,
   );
+
+  // Feeds for the live match: its own link(s) keyed by team codes, else fallback.
+  // Multiple feeds → the "Switch feed" button lets viewers flip primary/backup.
+  const feeds = onAir ? feedsForLiveMatch(url, onAir.team_a?.code, onAir.team_b?.code) : [];
+  const [feedIdx, setFeedIdx] = useState(0);
+  const activeUrl = feeds[feedIdx] ?? feeds[0] ?? "";
 
   const playerCard = (
     <div className="overflow-hidden rounded-3xl border border-border bg-night shadow-card">
@@ -105,13 +99,13 @@ function WatchPage() {
           <Tv className="size-8 text-primary" /> Watch Live
         </h1>
         <p className="mt-2 text-muted-foreground">
-          {onAir && url
+          {onAir && feeds.length
             ? title || "Live match stream."
             : "Live stream shows here when a match is on."}
         </p>
       </header>
 
-      {onAir && url ? (
+      {onAir && feeds.length ? (
         <div className="space-y-3">
           {playerCard}
           {feeds.length > 1 && (
@@ -128,8 +122,8 @@ function WatchPage() {
         </div>
       ) : next ? (
         <CountdownCard match={next} />
-      ) : onAir && !url ? (
-        <Placeholder text="A match is on, but no stream has been set. An admin can add one from the Admin page." />
+      ) : onAir ? (
+        <Placeholder text="This match is on, but no stream link is set for it. Add one in Admin → Live Stream." />
       ) : (
         <Placeholder text="No upcoming matches. Check back when the next fixture is scheduled." />
       )}
