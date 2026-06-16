@@ -85,6 +85,11 @@ function WatchPage() {
           src={activeUrl}
           title={title || "Live match"}
           className="absolute inset-0 size-full"
+          // Brave-style protection: the player can run scripts and play video,
+          // but the sandbox withholds allow-popups and allow-top-navigation, so
+          // its ad scripts can't open pop-ups or hijack/redirect the tab to
+          // another (e.g. adult/malware) site when you click play.
+          sandbox="allow-scripts allow-same-origin allow-presentation"
           allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
           allowFullScreen
         />
