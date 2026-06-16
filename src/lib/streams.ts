@@ -60,13 +60,25 @@ export function buildStreams(
   return lines.join("\n");
 }
 
-/** Feeds to play for the live match: its own link(s), else the fallback. */
+/**
+ * Feeds to play for the live match: its own link(s) first, then the default
+ * appended as an automatic backup so the player can fall back to it if the
+ * match's own link fails.
+ */
 export function feedsForLiveMatch(
   embed: string | null | undefined,
   codeA?: string | null,
   codeB?: string | null,
 ): string[] {
   const { byMatch, fallback } = parseStreams(embed);
-  const specific = codeA && codeB ? byMatch.get(matchKey(codeA, codeB)) : undefined;
-  return [...new Set(specific && specific.length ? specific : fallback)];
+  const specific = (codeA && codeB ? byMatch.get(matchKey(codeA, codeB)) : undefined) ?? [];
+  return [...new Set([...specific, ...fallback])];
+}
+
+/** Every URL configured anywhere in the stream config (for server-side allow-listing). */
+export function allConfiguredUrls(embed: string | null | undefined): string[] {
+  const { byMatch, fallback } = parseStreams(embed);
+  const all = new Set<string>(fallback);
+  for (const urls of byMatch.values()) urls.forEach((u) => all.add(u));
+  return [...all];
 }

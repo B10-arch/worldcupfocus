@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPTFull } from "@/lib/time";
 import { feedsForLiveMatch } from "@/lib/streams";
+import { orderStreams } from "@/lib/watch.functions";
+import { useServerFn } from "@tanstack/react-start";
 import { Tv, Trophy } from "lucide-react";
 
 // A scheduled match whose kickoff passed within this window is treated as on-air
@@ -71,11 +73,21 @@ function WatchPage() {
     (m) => m.status === "scheduled" && Date.parse(m.kickoff_utc) > now,
   );
 
-  // Feeds for the live match: its own link(s) keyed by team codes, else fallback.
-  // Multiple feeds → the "Switch feed" button lets viewers flip primary/backup.
+  // Feeds for the live match: its own link(s) keyed by team codes, plus the
+  // default appended as a backup.
   const feeds = onAir ? feedsForLiveMatch(url, onAir.team_a?.code, onAir.team_b?.code) : [];
+  // Server-side preflight reorders feeds so a working one plays first — auto-
+  // falls back to the default if the match's own link is gone or un-embeddable.
+  const orderFn = useServerFn(orderStreams);
+  const orderQ = useQuery({
+    queryKey: ["order-streams", feeds],
+    enabled: feeds.length > 1,
+    staleTime: 60_000,
+    queryFn: () => orderFn({ data: { feeds } }) as Promise<string[]>,
+  });
+  const ordered = orderQ.data?.length ? orderQ.data : feeds;
   const [feedIdx, setFeedIdx] = useState(0);
-  const activeUrl = feeds[feedIdx] ?? feeds[0] ?? "";
+  const activeUrl = ordered[feedIdx] ?? ordered[0] ?? "";
 
   const playerCard = (
     <div className="overflow-hidden rounded-3xl border border-border bg-night shadow-card">
@@ -113,14 +125,14 @@ function WatchPage() {
       {onAir && feeds.length ? (
         <div className="space-y-3">
           {playerCard}
-          {feeds.length > 1 && (
+          {ordered.length > 1 && (
             <p className="text-center text-sm text-muted-foreground">
               Stream not loading?{" "}
               <button
-                onClick={() => setFeedIdx((i) => (i + 1) % feeds.length)}
+                onClick={() => setFeedIdx((i) => (i + 1) % ordered.length)}
                 className="font-bold text-primary hover:underline"
               >
-                Switch feed ({feedIdx + 1}/{feeds.length})
+                Switch feed ({feedIdx + 1}/{ordered.length})
               </button>
             </p>
           )}
