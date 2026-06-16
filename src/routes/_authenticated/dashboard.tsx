@@ -38,9 +38,15 @@ function Dashboard() {
     queryKey: ["matches", "upcoming"],
     refetchInterval: 60_000, // live: pull fresh scores/status every 60s
     queryFn: async () => {
+      // Current slate: live + upcoming only (not old, already-played games).
+      // kickoff within the last ~3h keeps an in-progress match; not "finished"
+      // drops games that have ended.
+      const since = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
       const { data } = await supabase
         .from("matches")
         .select("*, team_a:teams!matches_team_a_id_fkey(*), team_b:teams!matches_team_b_id_fkey(*)")
+        .gte("kickoff_utc", since)
+        .neq("status", "finished")
         .order("kickoff_utc", { ascending: true })
         .limit(6);
       return data ?? [];
