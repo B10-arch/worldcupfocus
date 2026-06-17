@@ -124,27 +124,33 @@ function WatchPage() {
 
       {onAir && servers.length ? (
         <div className="space-y-3">
+          {playerCard}
           {servers.length > 1 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Servers · tap if video doesn&apos;t play
-              </span>
-              {servers.map((s, i) => (
-                <button
-                  key={s.url}
-                  onClick={() => setFeedIdx(i)}
-                  className={`rounded-full px-3 py-1 text-xs font-bold transition ${
-                    i === feedIdx
-                      ? "bg-primary text-primary-foreground"
-                      : "border border-border bg-surface text-foreground hover:border-primary hover:bg-primary/5"
-                  }`}
-                >
-                  {s.name}
-                </button>
-              ))}
+            <div className="rounded-2xl border border-border bg-surface p-4 shadow-card">
+              <p className="text-sm">
+                <span className="font-bold text-foreground">📺 Stream not playing?</span>{" "}
+                <span className="text-muted-foreground">
+                  Tap a different server below. Only some of these {servers.length} actually carry
+                  this match live — so try a few until one plays. The highlighted one is selected.
+                </span>
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {servers.map((s, i) => (
+                  <button
+                    key={s.url}
+                    onClick={() => setFeedIdx(i)}
+                    className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
+                      i === feedIdx
+                        ? "bg-primary text-primary-foreground shadow-glow"
+                        : "border border-border bg-background text-foreground hover:border-primary hover:bg-primary/5"
+                    }`}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
-          {playerCard}
         </div>
       ) : next ? (
         <CountdownCard match={next} />
