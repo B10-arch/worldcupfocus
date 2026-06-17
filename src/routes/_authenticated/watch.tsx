@@ -130,8 +130,10 @@ function WatchPage() {
               <p className="text-sm">
                 <span className="font-bold text-foreground">📺 Stream not playing?</span>{" "}
                 <span className="text-muted-foreground">
-                  Tap a different server below. Only some of these {servers.length} actually carry
-                  this match live — so try a few until one plays. The highlighted one is selected.
+                  Give it 10–20 seconds to load first. If it still doesn&apos;t play, tap a
+                  different server below — only some of these {servers.length} actually carry this
+                  match live, so try a few (waiting 10–20s on each) until one plays. The highlighted
+                  one is selected.
                 </span>
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
