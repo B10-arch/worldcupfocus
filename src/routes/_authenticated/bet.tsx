@@ -141,8 +141,10 @@ function BetPage() {
   const lockNotice = picksFinal
     ? "Your team picks are final and can no longer be changed."
     : locked
-      ? `Picks locked at ${formatNPTFull(BET_LOCK_UTC)} — your teams are final.`
-      : `You can back 1 to ${MAX_PICKS} teams — add or change them anytime while the pool is open.`;
+      ? picksCount > 0
+        ? `Picks locked at ${formatNPTFull(BET_LOCK_UTC)} — your teams are final.`
+        : "Team selection is closed. You can browse the pool, but new picks can no longer be added."
+      : `You can back 1 to ${MAX_PICKS} teams and change them until ${formatNPTFull(BET_LOCK_UTC)}.`;
 
   return (
     <div className="space-y-8">

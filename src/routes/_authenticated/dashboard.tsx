@@ -6,6 +6,7 @@ import {
   formatNPTDate,
   formatNPR,
   formatNPTFull,
+  isBetLocked,
   isTournamentStarted,
   TOURNAMENT_START_UTC,
 } from "@/lib/time";
@@ -160,7 +161,13 @@ function Dashboard() {
               to="/bet"
               className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:scale-105"
             >
-              {(myPicks.data?.length ?? 0) > 0 ? "Manage your picks" : "Pick your teams"}{" "}
+              {isBetLocked()
+                ? (myPicks.data?.length ?? 0) > 0
+                  ? "View your teams"
+                  : "View teams"
+                : (myPicks.data?.length ?? 0) > 0
+                  ? "Manage your picks"
+                  : "Pick your teams"}{" "}
               <ArrowUpRight className="size-4" />
             </Link>
             <Link

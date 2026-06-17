@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { isBetLocked } from "@/lib/time";
 import { AppShell } from "@/components/AppShell";
 
 // Resolve the session from local storage (instant — no network round-trip,
@@ -41,9 +42,12 @@ export const Route = createFileRoute("/_authenticated")({
     if (!session) throw redirect({ to: "/login" });
     const user = session.user;
 
-    // Force new users to choose at least one team before reaching the rest of
-    // the app. Cache the check (60s) so it isn't re-queried on every navigation.
-    if (location.pathname !== "/bet") {
+    // While picks are open, force new users to choose at least one team before
+    // reaching the rest of the app. Once picks are locked, selection is closed —
+    // so users without a team are NOT bounced to the (locked) pick page; they
+    // can browse the whole pool view-only. Cache the check (60s) so it isn't
+    // re-queried on every navigation.
+    if (location.pathname !== "/bet" && !isBetLocked()) {
       const hasBet = await context.queryClient.ensureQueryData({
         queryKey: ["has-bet", user.id],
         staleTime: 60_000,
