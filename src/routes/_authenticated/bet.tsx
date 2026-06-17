@@ -142,7 +142,7 @@ function BetPage() {
     ? "Your team picks are final and can no longer be changed."
     : locked
       ? `Picks locked at ${formatNPTFull(BET_LOCK_UTC)} — your teams are final.`
-      : `You can back 1 to ${MAX_PICKS} teams and change them until ${formatNPTFull(BET_LOCK_UTC)}.`;
+      : `You can back 1 to ${MAX_PICKS} teams — add or change them anytime while the pool is open.`;
 
   return (
     <div className="space-y-8">
