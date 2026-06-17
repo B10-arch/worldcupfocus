@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPTFull } from "@/lib/time";
 import { feedsForLiveMatch } from "@/lib/streams";
-import { expandFeeds } from "@/lib/hely-streams";
+import { expandFeeds, type Server } from "@/lib/hely-streams";
 import { Tv, Trophy } from "lucide-react";
 
 // A scheduled match whose kickoff passed within this window is treated as on-air
@@ -83,9 +83,11 @@ function WatchPage() {
     staleTime: 60_000,
     queryFn: () => expandFeeds(rawFeeds),
   });
-  const ordered = expandQ.data?.length ? expandQ.data : rawFeeds;
+  const servers: Server[] = expandQ.data?.length
+    ? expandQ.data
+    : rawFeeds.map((u) => ({ name: "Stream", url: u }));
   const [feedIdx, setFeedIdx] = useState(0);
-  const activeUrl = ordered[feedIdx] ?? ordered[0] ?? "";
+  const activeUrl = servers[feedIdx]?.url ?? servers[0]?.url ?? "";
 
   const playerCard = (
     <div className="overflow-hidden rounded-3xl border border-border bg-night shadow-card">
@@ -114,26 +116,35 @@ function WatchPage() {
           <Tv className="size-8 text-primary" /> Watch Live
         </h1>
         <p className="mt-2 text-muted-foreground">
-          {onAir && ordered.length
+          {onAir && servers.length
             ? title || "Live match stream."
             : "Live stream shows here when a match is on."}
         </p>
       </header>
 
-      {onAir && ordered.length ? (
+      {onAir && servers.length ? (
         <div className="space-y-3">
-          {playerCard}
-          {ordered.length > 1 && (
-            <p className="text-center text-sm text-muted-foreground">
-              Stream not loading?{" "}
-              <button
-                onClick={() => setFeedIdx((i) => (i + 1) % ordered.length)}
-                className="font-bold text-primary hover:underline"
-              >
-                Switch feed ({feedIdx + 1}/{ordered.length})
-              </button>
-            </p>
+          {servers.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Servers · tap if video doesn&apos;t play
+              </span>
+              {servers.map((s, i) => (
+                <button
+                  key={s.url}
+                  onClick={() => setFeedIdx(i)}
+                  className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                    i === feedIdx
+                      ? "bg-primary text-primary-foreground"
+                      : "border border-border bg-surface text-foreground hover:border-primary hover:bg-primary/5"
+                  }`}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
           )}
+          {playerCard}
         </div>
       ) : next ? (
         <CountdownCard match={next} />

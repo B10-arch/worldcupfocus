@@ -31,9 +31,20 @@ async function loadStreams(): Promise<any[]> {
 }
 
 /** A helytvme match link → clean player URLs (one per server); other URLs pass through. */
-export async function expandFeed(url: string): Promise<string[]> {
+export type Server = { name: string; url: string };
+
+// TSN reliably carries the live match (and works in our audience's region), so
+// surface it first as the default; the rest follow for manual switching.
+function rank(s: any): number {
+  const n = `${s.Server_Name ?? ""} ${s.id ?? ""}`.toLowerCase();
+  if (/tsn/.test(n)) return 0;
+  if (/english/.test(n)) return 1;
+  return 2;
+}
+
+export async function expandFeed(url: string): Promise<Server[]> {
   const id = matchIdOf(url);
-  if (!id) return [url];
+  if (!id) return [{ name: "Stream", url }];
   try {
     const streams = await loadStreams();
     const forMatch = streams.filter((s: any) =>
@@ -42,21 +53,22 @@ export async function expandFeed(url: string): Promise<string[]> {
         .map((x: string) => x.trim())
         .includes(id),
     );
-    // Direct streams (hls/mpd) first — cleanest video; nested iframes last.
-    forMatch.sort(
-      (a: any, b: any) => (a.type === "iframe" ? 1 : 0) - (b.type === "iframe" ? 1 : 0),
-    );
-    const urls = forMatch
-      .map((s: any) => (s.id ? PLAYER + encodeURIComponent(String(s.id)) : ""))
-      .filter(Boolean);
-    return urls.length ? urls : [url];
+    forMatch.sort((a: any, b: any) => rank(a) - rank(b));
+    const servers: Server[] = forMatch
+      .filter((s: any) => s.id)
+      .map((s: any) => ({
+        name: String(s.Server_Name || s.id),
+        url: PLAYER + encodeURIComponent(String(s.id)),
+      }));
+    return servers.length ? servers : [{ name: "Stream", url }];
   } catch {
-    return [url];
+    return [{ name: "Stream", url }];
   }
 }
 
-export async function expandFeeds(feeds: string[]): Promise<string[]> {
-  const out: string[] = [];
+export async function expandFeeds(feeds: string[]): Promise<Server[]> {
+  const out: Server[] = [];
   for (const f of feeds) out.push(...(await expandFeed(f)));
-  return [...new Set(out)];
+  const seen = new Set<string>();
+  return out.filter((s) => (seen.has(s.url) ? false : (seen.add(s.url), true)));
 }
