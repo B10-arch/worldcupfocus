@@ -7,6 +7,9 @@ import { feedsForLiveMatch } from "@/lib/streams";
 import { expandFeeds, type Server } from "@/lib/hely-streams";
 import { Tv, Trophy } from "lucide-react";
 
+// Start the stream 30 min before kickoff — the broadcast's pre-match show
+// (commentary + lineups) is already running by then.
+const PRE_MATCH_MS = 30 * 60 * 1000;
 // A scheduled match whose kickoff passed within this window is treated as on-air
 // (covers any lag before the sync flips its status to "live").
 const MATCH_WINDOW_MS = 2.5 * 60 * 60 * 1000;
@@ -59,13 +62,14 @@ function WatchPage() {
   const title = (stream?.title ?? "").trim();
 
   const now = Date.now();
-  // A match is "on air" if it's live, or it's a scheduled match whose kickoff
-  // just passed (sync may lag flipping it to live).
+  // A match is "on air" if it's live, or it's scheduled and we're inside the
+  // window from 30 min before kickoff (pre-match show: commentary + lineups)
+  // until MATCH_WINDOW_MS after kickoff.
   const onAir = (matches ?? []).find(
     (m) =>
       m.status === "live" ||
       (m.status === "scheduled" &&
-        Date.parse(m.kickoff_utc) <= now &&
+        now >= Date.parse(m.kickoff_utc) - PRE_MATCH_MS &&
         now - Date.parse(m.kickoff_utc) < MATCH_WINDOW_MS),
   );
   const next = (matches ?? []).find(
