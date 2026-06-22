@@ -13,6 +13,16 @@ async function resolveSession(): Promise<Session | null> {
   const { data } = await supabase.auth.getSession();
   if (data.session) return data.session;
 
+  // No active session in storage — but the access token may have simply expired
+  // while a valid refresh token is still saved. Try to refresh before bouncing
+  // to /login, so returning users stay signed in instead of re-authenticating.
+  try {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed.session) return refreshed.session;
+  } catch {
+    // no/expired refresh token — fall through to the OAuth-callback check
+  }
+
   const url = typeof window !== "undefined" ? window.location.href : "";
   const looksLikeOAuthCallback = /[?&]code=|[#&](access_token|error)=/.test(url);
   if (!looksLikeOAuthCallback) return null;
