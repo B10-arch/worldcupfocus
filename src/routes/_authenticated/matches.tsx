@@ -1,15 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPT, formatNPTDate, isTournamentStarted } from "@/lib/time";
 import { MatchHighlights } from "@/components/MatchHighlights";
+import { ChevronDown } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/matches")({
   head: () => ({ meta: [{ title: "Matches · Focus World Cup Pool" }] }),
   component: MatchesPage,
 });
 
+// Calendar-day index in Nepal time (UTC +5:45), for bucketing matches into days
+// and comparing against "today" so the listing rolls over automatically.
+const NPT_OFFSET_MS = (5 * 60 + 45) * 60 * 1000;
+const nptDayIndex = (utc: string | number | Date) =>
+  Math.floor((new Date(utc).getTime() + NPT_OFFSET_MS) / 86_400_000);
+
 function MatchesPage() {
+  const [showPast, setShowPast] = useState(false);
   const { data: matches } = useQuery({
     queryKey: ["matches", "all"],
     queryFn: async () => {
@@ -21,16 +30,29 @@ function MatchesPage() {
     },
   });
 
-  // Group: confirmed matches by NPT date; everything else under "Time TBC".
+  // Confirmed matches grouped by NPT day; "Time TBC" fixtures kept separate.
   const confirmed = (matches ?? []).filter((m) => !m.time_tbc);
   const tbc = (matches ?? []).filter((m) => m.time_tbc);
 
-  const grouped = confirmed.reduce<Record<string, typeof confirmed>>((acc, m) => {
-    const day = formatNPTDate(m.kickoff_utc);
-    acc[day] = acc[day] ?? [];
-    acc[day]!.push(m);
-    return acc;
-  }, {});
+  const byDay = new Map<number, any[]>();
+  for (const m of confirmed) {
+    const idx = nptDayIndex(m.kickoff_utc);
+    if (!byDay.has(idx)) byDay.set(idx, []);
+    byDay.get(idx)!.push(m);
+  }
+  const groups = [...byDay.entries()]
+    .map(([idx, list]) => ({ idx, list, label: formatNPTDate(list[0].kickoff_utc) }))
+    .sort((a, b) => a.idx - b.idx);
+
+  const todayIdx = nptDayIndex(Date.now());
+  const today = groups.find((g) => g.idx === todayIdx);
+  const upcoming = groups.filter((g) => g.idx > todayIdx);
+  const past = groups.filter((g) => g.idx < todayIdx).reverse(); // most-recent day first
+
+  // If there's nothing current to show (a rest day, or after the final), reveal
+  // the older matches by default instead of an almost-empty page.
+  const hasCurrent = !!today || upcoming.length > 0;
+  const pastVisible = !hasCurrent || showPast;
 
   return (
     <div className="space-y-10">
@@ -43,8 +65,10 @@ function MatchesPage() {
         </p>
       </header>
 
-      {Object.entries(grouped).map(([day, list]) => (
-        <Section key={day} title={day} list={list!} />
+      {today && <Section title="Today" subtitle={today.label} list={today.list} accent />}
+
+      {upcoming.map((g) => (
+        <Section key={g.idx} title={g.label} list={g.list} />
       ))}
 
       {tbc.length > 0 && (
@@ -55,6 +79,32 @@ function MatchesPage() {
           hideTime
         />
       )}
+
+      {past.length > 0 && (
+        <section className="space-y-6">
+          {hasCurrent && (
+            <button
+              onClick={() => setShowPast((s) => !s)}
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-bold text-foreground transition hover:border-primary hover:bg-primary/5"
+            >
+              <ChevronDown className={`size-4 transition ${pastVisible ? "rotate-180" : ""}`} />
+              {pastVisible ? "Hide older matches" : "Show older matches & highlights"}
+              {!pastVisible && (
+                <span className="text-muted-foreground">
+                  ({past.length} {past.length === 1 ? "day" : "days"})
+                </span>
+              )}
+            </button>
+          )}
+          {pastVisible && (
+            <div className="space-y-10">
+              {past.map((g) => (
+                <Section key={g.idx} title={g.label} list={g.list} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -64,16 +114,27 @@ function Section({
   subtitle,
   list,
   hideTime,
+  accent,
 }: {
   title: string;
   subtitle?: string;
   list: any[];
   hideTime?: boolean;
+  accent?: boolean;
 }) {
   return (
     <section>
-      <h3 className="mb-1 font-display text-xl font-bold">{title}</h3>
-      {subtitle && <p className="mb-3 text-xs text-muted-foreground">{subtitle}</p>}
+      <h3
+        className={`mb-3 flex flex-wrap items-center gap-2 font-display text-xl font-bold ${
+          accent ? "text-primary" : ""
+        }`}
+      >
+        {accent && <span className="size-2 animate-pulse rounded-full bg-primary" />}
+        {title}
+        {subtitle && (
+          <span className="text-sm font-semibold text-muted-foreground">{subtitle}</span>
+        )}
+      </h3>
       <div className="space-y-2">
         {list.map((m) => (
           <MatchRow key={m.id} m={m} hideTime={hideTime} />
