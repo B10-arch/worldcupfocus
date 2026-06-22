@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPT, formatNPTDate, isTournamentStarted } from "@/lib/time";
 import { MatchHighlights } from "@/components/MatchHighlights";
@@ -54,15 +54,41 @@ function MatchesPage() {
   const hasCurrent = !!today || upcoming.length > 0;
   const pastVisible = !hasCurrent || showPast;
 
+  // The older matches live at the bottom; the top-right toggle reveals them and
+  // smooth-scrolls down to that section.
+  const olderRef = useRef<HTMLElement>(null);
+  const onToggleOlder = () => {
+    if (pastVisible) {
+      setShowPast(false);
+    } else {
+      setShowPast(true);
+      setTimeout(
+        () => olderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        50,
+      );
+    }
+  };
+
   return (
     <div className="space-y-10">
-      <header>
-        <h2 className="font-display text-4xl font-bold">Match schedule</h2>
-        <p className="mt-2 text-muted-foreground">
-          All kickoff times converted to Nepal Standard Time (UTC +5:45).
-          {!isTournamentStarted() &&
-            " The tournament has not started yet — no scores will appear until matches kick off."}
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-display text-4xl font-bold">Match schedule</h2>
+          <p className="mt-2 text-muted-foreground">
+            All kickoff times converted to Nepal Standard Time (UTC +5:45).
+            {!isTournamentStarted() &&
+              " The tournament has not started yet — no scores will appear until matches kick off."}
+          </p>
+        </div>
+        {past.length > 0 && hasCurrent && (
+          <button
+            onClick={onToggleOlder}
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-bold text-foreground transition hover:border-primary hover:bg-primary/5"
+          >
+            <ChevronDown className={`size-4 transition ${pastVisible ? "rotate-180" : ""}`} />
+            {pastVisible ? "Hide older matches" : "Show older matches & highlights"}
+          </button>
+        )}
       </header>
 
       {today && <Section title="Today" subtitle={today.label} list={today.list} accent />}
@@ -81,27 +107,26 @@ function MatchesPage() {
       )}
 
       {past.length > 0 && (
-        <section className="space-y-6">
-          {hasCurrent && (
-            <button
-              onClick={() => setShowPast((s) => !s)}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-bold text-foreground transition hover:border-primary hover:bg-primary/5"
-            >
-              <ChevronDown className={`size-4 transition ${pastVisible ? "rotate-180" : ""}`} />
-              {pastVisible ? "Hide older matches" : "Show older matches & highlights"}
-              {!pastVisible && (
-                <span className="text-muted-foreground">
-                  ({past.length} {past.length === 1 ? "day" : "days"})
-                </span>
-              )}
-            </button>
-          )}
+        <section ref={olderRef} className="scroll-mt-24 space-y-10">
           {pastVisible && (
-            <div className="space-y-10">
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-display text-xl font-bold text-muted-foreground">
+                  Older matches &amp; highlights
+                </h3>
+                {hasCurrent && (
+                  <button
+                    onClick={() => setShowPast(false)}
+                    className="text-xs font-bold text-primary hover:underline"
+                  >
+                    Hide
+                  </button>
+                )}
+              </div>
               {past.map((g) => (
                 <Section key={g.idx} title={g.label} list={g.list} />
               ))}
-            </div>
+            </>
           )}
         </section>
       )}
