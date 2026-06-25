@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPTFull } from "@/lib/time";
 import { feedsForLiveMatch } from "@/lib/streams";
@@ -13,6 +13,9 @@ const PRE_MATCH_MS = 30 * 60 * 1000;
 // A scheduled match whose kickoff passed within this window is treated as on-air
 // (covers any lag before the sync flips its status to "live").
 const MATCH_WINDOW_MS = 2.5 * 60 * 60 * 1000;
+// Keep the stream on-air this long after a match finishes, so viewers catch the
+// ending/post-match commentary instead of the feed cutting at the final whistle.
+const POST_MATCH_MS = 10 * 60 * 1000;
 
 export const Route = createFileRoute("/_authenticated/watch")({
   head: () => ({ meta: [{ title: "Watch Live · Focus World Cup Pool" }] }),
@@ -21,6 +24,7 @@ export const Route = createFileRoute("/_authenticated/watch")({
 
 type LiveStream = { embed_url: string; title: string };
 type WatchMatch = {
+  id: string;
   status: string;
   kickoff_utc: string;
   team_a: { name: string | null; flag_emoji: string | null; code: string | null } | null;
@@ -46,14 +50,17 @@ function WatchPage() {
     queryKey: ["watch-matches"],
     refetchInterval: 30_000,
     queryFn: async () => {
+      // Include matches from the last few hours (not just upcoming) so a match
+      // that has just finished is still available for the post-match window.
+      const since = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
       const { data } = await (supabase as any)
         .from("matches")
         .select(
-          "status, kickoff_utc, team_a:teams!matches_team_a_id_fkey(name, flag_emoji, code), team_b:teams!matches_team_b_id_fkey(name, flag_emoji, code)",
+          "id, status, kickoff_utc, team_a:teams!matches_team_a_id_fkey(name, flag_emoji, code), team_b:teams!matches_team_b_id_fkey(name, flag_emoji, code)",
         )
-        .neq("status", "finished")
+        .gte("kickoff_utc", since)
         .order("kickoff_utc", { ascending: true })
-        .limit(6);
+        .limit(10);
       return (data ?? []) as WatchMatch[];
     },
   });
@@ -61,16 +68,37 @@ function WatchPage() {
   const url = (stream?.embed_url ?? "").trim();
   const title = (stream?.title ?? "").trim();
 
+  // The data has no "finished_at", so we remember the moment a match we were
+  // watching (seen "live") flips to "finished" and keep its stream on-air for
+  // POST_MATCH_MS afterwards — long enough for the ending/post-match commentary.
+  const seenLive = useRef<Set<string>>(new Set());
+  const [finishedAt, setFinishedAt] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const justFinished: string[] = [];
+    for (const m of matches ?? []) {
+      if (m.status === "live") seenLive.current.add(m.id);
+      if (m.status === "finished" && seenLive.current.has(m.id)) justFinished.push(m.id);
+    }
+    if (justFinished.length) {
+      setFinishedAt((prev) => {
+        let next = prev;
+        for (const id of justFinished) if (next[id] == null) next = { ...next, [id]: Date.now() };
+        return next;
+      });
+    }
+  }, [matches]);
+
   const now = Date.now();
-  // A match is "on air" if it's live, or it's scheduled and we're inside the
-  // window from 30 min before kickoff (pre-match show: commentary + lineups)
-  // until MATCH_WINDOW_MS after kickoff.
+  // A match is "on air" if it's live; if it's scheduled and we're inside the
+  // window from 30 min before kickoff (pre-match show) to MATCH_WINDOW_MS after;
+  // or if it just finished and we're still within the post-match window.
   const onAir = (matches ?? []).find(
     (m) =>
       m.status === "live" ||
       (m.status === "scheduled" &&
         now >= Date.parse(m.kickoff_utc) - PRE_MATCH_MS &&
-        now - Date.parse(m.kickoff_utc) < MATCH_WINDOW_MS),
+        now - Date.parse(m.kickoff_utc) < MATCH_WINDOW_MS) ||
+      (m.status === "finished" && now - (finishedAt[m.id] ?? -Infinity) < POST_MATCH_MS),
   );
   const next = (matches ?? []).find(
     (m) => m.status === "scheduled" && Date.parse(m.kickoff_utc) > now,
