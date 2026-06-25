@@ -92,7 +92,9 @@ function WatchPage() {
   // A match is "on air" if it's live; if it's scheduled and we're inside the
   // window from 30 min before kickoff (pre-match show) to MATCH_WINDOW_MS after;
   // or if it just finished and we're still within the post-match window.
-  const onAir = (matches ?? []).find(
+  // ALL matches on air right now (not just the first) — so concurrent games
+  // can be shown side by side.
+  const onAirMatches = (matches ?? []).filter(
     (m) =>
       m.status === "live" ||
       (m.status === "scheduled" &&
@@ -104,14 +106,63 @@ function WatchPage() {
     (m) => m.status === "scheduled" && Date.parse(m.kickoff_utc) > now,
   );
 
-  // Feeds for the live match: its own link(s) keyed by team codes, plus the
-  // default appended as a backup.
-  const rawFeeds = onAir ? feedsForLiveMatch(url, onAir.team_a?.code, onAir.team_b?.code) : [];
+  return (
+    <div className="space-y-6">
+      <header>
+        <h1 className="flex items-center gap-2 font-display text-4xl font-bold">
+          <Tv className="size-8 text-primary" /> Watch Live
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          {onAirMatches.length > 1
+            ? `${onAirMatches.length} matches are on right now — watch them side by side below.`
+            : onAirMatches.length === 1
+              ? title || "Live match stream."
+              : "Live stream shows here when a match is on."}
+        </p>
+      </header>
+
+      {onAirMatches.length > 0 ? (
+        <div className="space-y-4">
+          {onAirMatches.length > 1 && (
+            <p className="rounded-2xl border border-border bg-surface px-4 py-2.5 text-xs text-muted-foreground">
+              🔊 All {onAirMatches.length} games play at once. To avoid clashing audio, mute the
+              ones you&apos;re not listening to from each player&apos;s controls — or fullscreen the
+              one you want to focus on.
+            </p>
+          )}
+          <div className={onAirMatches.length === 1 ? "" : "grid grid-cols-1 gap-5 lg:grid-cols-2"}>
+            {onAirMatches.map((m) => (
+              <MatchPlayer key={m.id} match={m} streamUrl={url} title={title} />
+            ))}
+          </div>
+        </div>
+      ) : next ? (
+        <CountdownCard match={next} />
+      ) : (
+        <Placeholder text="No upcoming matches. Check back when the next fixture is scheduled." />
+      )}
+    </div>
+  );
+}
+
+/** One match's video + its own server switcher. Rendered once per on-air match
+ *  so several concurrent games can play side by side. */
+function MatchPlayer({
+  match,
+  streamUrl,
+  title,
+}: {
+  match: WatchMatch;
+  streamUrl: string;
+  title: string;
+}) {
+  // This match's own link(s) keyed by team codes, plus the default as a backup.
+  const rawFeeds = feedsForLiveMatch(streamUrl, match.team_a?.code, match.team_b?.code);
   // Resolve helytvme match links into clean, video-only player URLs (one per
   // server). Non-helytvme links pass through unchanged.
   const expandQ = useQuery({
     queryKey: ["expand-feeds", rawFeeds],
-    enabled: onAir != null && rawFeeds.length > 0,
+    enabled: rawFeeds.length > 0,
     staleTime: 60_000,
     queryFn: () => expandFeeds(rawFeeds),
   });
@@ -121,42 +172,44 @@ function WatchPage() {
   const [feedIdx, setFeedIdx] = useState(0);
   const activeUrl = servers[feedIdx]?.url ?? servers[0]?.url ?? "";
 
-  const playerCard = (
-    <div className="overflow-hidden rounded-3xl border border-border bg-night shadow-card">
-      <div className="relative aspect-video">
-        <iframe
-          key={activeUrl}
-          src={activeUrl}
-          title={title || "Live match"}
-          className="absolute inset-0 size-full"
-          // Brave-style protection: the player can run scripts and play video,
-          // but the sandbox withholds allow-popups and allow-top-navigation, so
-          // its ad scripts can't open pop-ups or hijack/redirect the tab to
-          // another (e.g. adult/malware) site when you click play.
-          sandbox="allow-scripts allow-same-origin allow-presentation"
-          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-          allowFullScreen
-        />
-      </div>
-    </div>
-  );
+  const a = match.team_a;
+  const b = match.team_b;
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="flex items-center gap-2 font-display text-4xl font-bold">
-          <Tv className="size-8 text-primary" /> Watch Live
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          {onAir && servers.length
-            ? title || "Live match stream."
-            : "Live stream shows here when a match is on."}
-        </p>
-      </header>
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-sm font-bold">
+        <span
+          className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+            match.status === "live" ? "bg-magenta/10 text-magenta" : "bg-primary/10 text-primary"
+          }`}
+        >
+          {match.status === "live" ? "● Live" : "On air"}
+        </span>
+        <span className="min-w-0 truncate">
+          {a?.flag_emoji ?? "🏳️"} {a?.name ?? "TBD"}{" "}
+          <span className="text-muted-foreground">vs</span> {b?.name ?? "TBD"}{" "}
+          {b?.flag_emoji ?? "🏳️"}
+        </span>
+      </div>
 
-      {onAir && servers.length ? (
-        <div className="space-y-3">
-          {playerCard}
+      {servers.length ? (
+        <>
+          <div className="overflow-hidden rounded-3xl border border-border bg-night shadow-card">
+            <div className="relative aspect-video">
+              <iframe
+                key={activeUrl}
+                src={activeUrl}
+                title={title || "Live match"}
+                className="absolute inset-0 size-full"
+                // Brave-style protection: the sandbox withholds allow-popups and
+                // allow-top-navigation, so the player's ad scripts can't open
+                // pop-ups or hijack/redirect the tab when you tap play.
+                sandbox="allow-scripts allow-same-origin allow-presentation"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowFullScreen
+              />
+            </div>
+          </div>
           {servers.length > 1 && (
             <div className="rounded-2xl border border-border bg-surface p-4 shadow-card">
               <p className="text-sm">
@@ -185,13 +238,9 @@ function WatchPage() {
               </div>
             </div>
           )}
-        </div>
-      ) : next ? (
-        <CountdownCard match={next} />
-      ) : onAir ? (
-        <Placeholder text="This match is on, but no stream link is set for it. Add one in Admin → Live Stream." />
+        </>
       ) : (
-        <Placeholder text="No upcoming matches. Check back when the next fixture is scheduled." />
+        <Placeholder text="This match is on, but no stream link is set for it yet." />
       )}
     </div>
   );
