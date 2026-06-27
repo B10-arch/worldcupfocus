@@ -141,6 +141,12 @@ function WatchPage() {
       ) : (
         <Placeholder text="No upcoming matches. Check back when the next fixture is scheduled." />
       )}
+
+      <p className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
+        Focus World Cup Pool is a free, non-commercial game for pool members only. Live streams are
+        gathered from publicly available third-party sources — we don&apos;t host, control, or sell
+        them — and this site isn&apos;t affiliated with FIFA or any official broadcaster.
+      </p>
     </div>
   );
 }

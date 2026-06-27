@@ -33,13 +33,15 @@ async function loadStreams(): Promise<Row[]> {
   return cache.rows;
 }
 
-// TSN reliably carries the live match (and works in our audience's region), so
-// surface it first; English next; the rest follow for manual switching.
+// Rank servers for the default pick. Direct-play streams (hls/mpd) come first:
+// "iframe" streams nest another iframe whose frame-ancestors allows the original
+// site but not ours, so they show "refused to connect" when embedded here. After
+// that, prefer TSN (reliable in our region), then English/Fox/Bein.
 function rank(s: Row): number {
+  const iframePenalty = String(s.type ?? "").toLowerCase() === "iframe" ? 100 : 0;
   const n = `${s.Server_Name ?? ""} ${s.id ?? ""}`.toLowerCase();
-  if (/tsn/.test(n)) return 0;
-  if (/english|fox|bein/.test(n)) return 1;
-  return 2;
+  const src = /tsn/.test(n) ? 0 : /english|fox|bein/.test(n) ? 1 : 2;
+  return iframePenalty + src;
 }
 
 // A stream row's `id` is a comma/space list of the match slots it serves.
