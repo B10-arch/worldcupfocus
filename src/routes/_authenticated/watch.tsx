@@ -109,7 +109,22 @@ function WatchPage() {
   const defaultFeeds = parseStreams(url).fallback;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <header>
+        <h1 className="flex items-center gap-2 font-display text-4xl font-bold">
+          <Tv className="size-8 text-primary" /> Watch Live
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          {onAirMatches.length > 1
+            ? `${onAirMatches.length} matches are on right now — watch them side by side below.`
+            : onAirMatches.length === 1
+              ? title || "Live match stream."
+              : defaultFeeds.length > 0
+                ? "Live football coverage — tap a different server if it doesn't load."
+                : "Live stream shows here when a match is on."}
+        </p>
+      </header>
+
       {onAirMatches.length > 0 ? (
         <div className="space-y-4">
           {onAirMatches.length > 1 && (
@@ -154,21 +169,6 @@ function WatchPage() {
       ) : (
         <Placeholder text="No upcoming matches. Check back when the next fixture is scheduled." />
       )}
-
-      <header>
-        <h1 className="flex items-center gap-2 font-display text-2xl font-bold">
-          <Tv className="size-6 text-primary" /> Watch Live
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {onAirMatches.length > 1
-            ? `${onAirMatches.length} matches are on right now.`
-            : onAirMatches.length === 1
-              ? title || "Live match stream."
-              : defaultFeeds.length > 0
-                ? "Live football coverage — tap a different server if it doesn't load."
-                : "Live stream shows here when a match is on."}
-        </p>
-      </header>
 
       <p className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
         Focus World Cup Pool is a free, non-commercial game for pool members only. Live streams are
