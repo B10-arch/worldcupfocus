@@ -67,27 +67,6 @@ const colX = (side: string, round: string) =>
 
 const keyIds = (a: string, b: string) => [a, b].sort().join("-");
 
-// Fixed bracket order (poster structure), so the layout is independent of
-// kickoff time. Left half top→bottom, then right half top→bottom.
-const R32_ORDER: [string, string][] = [
-  ["GER", "PAR"],
-  ["FRA", "SWE"],
-  ["RSA", "CAN"],
-  ["NED", "MAR"],
-  ["POR", "CRO"],
-  ["ESP", "AUT"],
-  ["USA", "BIH"],
-  ["BEL", "SEN"],
-  ["BRA", "JPN"],
-  ["CIV", "NOR"],
-  ["MEX", "ECU"],
-  ["ENG", "COD"],
-  ["ARG", "CPV"],
-  ["AUS", "EGY"],
-  ["SUI", "ALG"],
-  ["COL", "GHA"],
-];
-
 type Node = {
   round: string;
   side: string;
@@ -129,17 +108,12 @@ function BracketPage() {
   }, []);
 
   const ms = matches ?? [];
-  // Order R32 by the fixed bracket structure (matched by team codes), not by
-  // kickoff — so updating kickoff times never reshuffles the bracket.
-  const r32raw = ms.filter((m) => m.stage === "r32");
-  const byCodes = new Map<string, Match>();
-  for (const m of r32raw)
-    if (m.team_a?.code && m.team_b?.code)
-      byCodes.set([m.team_a.code, m.team_b.code].sort().join("-"), m);
-  const orderedR32 = R32_ORDER.map(([a, b]) => byCodes.get([a, b].sort().join("-"))).filter(
-    Boolean,
-  ) as Match[];
-  const r32 = orderedR32.length === 16 ? orderedR32 : r32raw;
+  // Order R32 by kickoff (earliest first), then deal the games out to the two
+  // sides in lockstep: the first game sits top-left, the second top-right, and
+  // both columns advance through the schedule together.
+  const r32sorted = ms.filter((m) => m.stage === "r32");
+  const leftRows = r32sorted.filter((_, i) => i % 2 === 0);
+  const rightRows = r32sorted.filter((_, i) => i % 2 === 1);
 
   // Look up a played match by the two teams in it (order-independent), so a
   // winner propagates regardless of which round-row it was stored on.
@@ -219,9 +193,9 @@ function BracketPage() {
     return { r32: r, r16, qf, sf };
   }
 
-  const haveBracket = r32.length === 16;
-  const L = haveBracket ? buildSide(r32.slice(0, 8), "left", { r16: 0, qf: 0, sf: 0 }) : null;
-  const R = haveBracket ? buildSide(r32.slice(8, 16), "right", { r16: 4, qf: 2, sf: 1 }) : null;
+  const haveBracket = r32sorted.length === 16;
+  const L = haveBracket ? buildSide(leftRows, "left", { r16: 0, qf: 0, sf: 0 }) : null;
+  const R = haveBracket ? buildSide(rightRows, "right", { r16: 4, qf: 2, sf: 1 }) : null;
   const final =
     L && R
       ? resolve({
