@@ -209,7 +209,8 @@ function FeedPlayer({
       {header}
       {servers.length ? (
         <>
-          <div className="overflow-hidden rounded-3xl border border-border bg-night shadow-card">
+          {/* Sticky so the video stays on screen while you scroll the page. */}
+          <div className="sticky top-28 z-30 overflow-hidden rounded-3xl border border-border bg-night shadow-card lg:top-[72px]">
             <div className="relative aspect-video">
               <iframe
                 key={activeUrl}

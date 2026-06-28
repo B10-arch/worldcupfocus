@@ -38,10 +38,14 @@ async function loadStreams(): Promise<Row[]> {
 // site but not ours, so they show "refused to connect" when embedded here. After
 // that, prefer TSN (reliable in our region), then English/Fox/Bein.
 function rank(s: Row): number {
-  const iframePenalty = String(s.type ?? "").toLowerCase() === "iframe" ? 100 : 0;
+  // Prefer HLS (usually plays with no DRM), then MPD, then iframe (nested embeds
+  // can refuse our origin → "refused to connect"). Within a type: TSN, then
+  // English/Fox/Bein, then the rest.
+  const t = String(s.type ?? "").toLowerCase();
+  const typeRank = t === "iframe" ? 200 : t === "mpd" ? 100 : 0;
   const n = `${s.Server_Name ?? ""} ${s.id ?? ""}`.toLowerCase();
   const src = /tsn/.test(n) ? 0 : /english|fox|bein/.test(n) ? 1 : 2;
-  return iframePenalty + src;
+  return typeRank + src;
 }
 
 // A stream row's `id` is a comma/space list of the match slots it serves.
