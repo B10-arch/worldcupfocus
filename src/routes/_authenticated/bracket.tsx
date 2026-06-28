@@ -46,10 +46,12 @@ function flagImg(team: Team | null): string | null {
 }
 
 // ---- Geometry (computed so the connector lines always line up) ----
-const BOX_W = 152;
-const BOX_H = 56;
-const V_GAP = 16;
-const COL_GAP = 38;
+// Tall + narrow on purpose: the bracket scales to fit the screen width, so a
+// taller/narrower shape fills more of the screen (bigger, more readable).
+const BOX_W = 122;
+const BOX_H = 60;
+const V_GAP = 50;
+const COL_GAP = 16;
 const COLW = BOX_W + COL_GAP;
 const ROW = BOX_H + V_GAP;
 const HEAD = 34; // header band
@@ -287,14 +289,22 @@ function BracketPage() {
                   {h}
                 </div>
               ))}
-              {/* center title */}
+              {/* center title (sits in the empty centre-top space) */}
               <div
                 className="absolute -translate-x-1/2 text-center"
-                style={{ left: 4 * COLW + BOX_W / 2, top: HEAD + HEIGHT / 2 - 80 }}
+                style={{ left: 4 * COLW + BOX_W / 2, top: HEAD + 30 }}
               >
-                <p className="font-display text-xl font-black leading-none text-white">WORLD CUP</p>
-                <p className="font-display text-4xl font-black leading-none text-amber-300">2026</p>
+                <p className="font-display text-lg font-black leading-none text-white">WORLD CUP</p>
+                <p className="font-display text-3xl font-black leading-none text-amber-300">2026</p>
               </div>
+              {final && (
+                <div
+                  className="absolute -translate-x-1/2 text-center text-xs font-black uppercase tracking-[0.2em] text-amber-300"
+                  style={{ left: 4 * COLW + BOX_W / 2, top: HEAD + final.cy - BOX_H / 2 - 22 }}
+                >
+                  Final
+                </div>
+              )}
 
               {/* connectors */}
               <svg
