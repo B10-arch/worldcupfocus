@@ -65,10 +65,13 @@ export async function expandFeed(url: string): Promise<Server[]> {
   try {
     const target = id.toLowerCase();
     const rows = (await loadStreams()).filter((s) => s.id);
+    // "fifa" / "live" / "tv" are generic live-coverage links — go straight to the
+    // FIFA broadcast channels (whatever game is on shows there).
+    const generic = target === "fifa" || target === "live" || target === "tv";
     // Streams tagged for this exact match slot.
-    let forMatch = rows.filter((s) => rowSlots(s).includes(target));
-    // Slot not tagged yet → fall back to the main FIFA broadcast channels.
-    if (!forMatch.length && /^fifa/i.test(id)) {
+    let forMatch = generic ? [] : rows.filter((s) => rowSlots(s).includes(target));
+    // Slot not tagged (or generic) → fall back to the main FIFA broadcast channels.
+    if (!forMatch.length && (generic || /^fifa/i.test(id))) {
       forMatch = rows.filter((s) => FIFA_CHANNELS.test(`${s.Server_Name ?? ""} ${s.id ?? ""}`));
     }
     forMatch.sort((a, b) => rank(a) - rank(b));

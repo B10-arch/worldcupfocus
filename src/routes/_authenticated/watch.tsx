@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPTFull } from "@/lib/time";
-import { feedsForLiveMatch } from "@/lib/streams";
+import { feedsForLiveMatch, parseStreams } from "@/lib/streams";
 import { expandFeeds, type Server } from "@/lib/hely-streams";
 import { Tv, Trophy } from "lucide-react";
 
@@ -105,6 +105,8 @@ function WatchPage() {
   const next = (matches ?? []).find(
     (m) => m.status === "scheduled" && Date.parse(m.kickoff_utc) > now,
   );
+  // Default/fallback feed(s) — played as live coverage whenever no match is on air.
+  const defaultFeeds = parseStreams(url).fallback;
 
   return (
     <div className="space-y-6">
@@ -117,7 +119,9 @@ function WatchPage() {
             ? `${onAirMatches.length} matches are on right now — watch them side by side below.`
             : onAirMatches.length === 1
               ? title || "Live match stream."
-              : "Live stream shows here when a match is on."}
+              : defaultFeeds.length > 0
+                ? "Live football coverage — tap a different server if it doesn't load."
+                : "Live stream shows here when a match is on."}
         </p>
       </header>
 
@@ -136,6 +140,30 @@ function WatchPage() {
             ))}
           </div>
         </div>
+      ) : defaultFeeds.length > 0 ? (
+        <div className="space-y-3">
+          <FeedPlayer
+            rawFeeds={defaultFeeds}
+            title={title}
+            header={
+              <div className="flex items-center gap-2 text-sm font-bold">
+                <span className="rounded-full bg-magenta/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-magenta">
+                  ● Live coverage
+                </span>
+                <span className="text-muted-foreground">
+                  Live football — whatever game / pre &amp; post-match is on
+                </span>
+              </div>
+            }
+          />
+          {next && (
+            <p className="text-xs text-muted-foreground">
+              Next match: {next.team_a?.flag_emoji} {next.team_a?.name}{" "}
+              <span className="text-muted-foreground">vs</span> {next.team_b?.name}{" "}
+              {next.team_b?.flag_emoji} · {formatNPTFull(next.kickoff_utc)}
+            </p>
+          )}
+        </div>
       ) : next ? (
         <CountdownCard match={next} />
       ) : (
@@ -151,21 +179,19 @@ function WatchPage() {
   );
 }
 
-/** One match's video + its own server switcher. Rendered once per on-air match
- *  so several concurrent games can play side by side. */
-function MatchPlayer({
-  match,
-  streamUrl,
+/** Resolves raw feed URLs into servers and renders the video + server switcher.
+ *  Shared by the per-match player and the default live-coverage player. */
+function FeedPlayer({
+  rawFeeds,
   title,
+  header,
 }: {
-  match: WatchMatch;
-  streamUrl: string;
+  rawFeeds: string[];
   title: string;
+  header: ReactNode;
 }) {
-  // This match's own link(s) keyed by team codes, plus the default as a backup.
-  const rawFeeds = feedsForLiveMatch(streamUrl, match.team_a?.code, match.team_b?.code);
-  // Resolve helytvme match links into clean, video-only player URLs (one per
-  // server). Non-helytvme links pass through unchanged.
+  // Resolve helytvme links into clean, video-only player URLs (one per server).
+  // Non-helytvme links pass through unchanged.
   const expandQ = useQuery({
     queryKey: ["expand-feeds", rawFeeds],
     enabled: rawFeeds.length > 0,
@@ -178,26 +204,9 @@ function MatchPlayer({
   const [feedIdx, setFeedIdx] = useState(0);
   const activeUrl = servers[feedIdx]?.url ?? servers[0]?.url ?? "";
 
-  const a = match.team_a;
-  const b = match.team_b;
-
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-sm font-bold">
-        <span
-          className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-            match.status === "live" ? "bg-magenta/10 text-magenta" : "bg-primary/10 text-primary"
-          }`}
-        >
-          {match.status === "live" ? "● Live" : "On air"}
-        </span>
-        <span className="min-w-0 truncate">
-          {a?.flag_emoji ?? "🏳️"} {a?.name ?? "TBD"}{" "}
-          <span className="text-muted-foreground">vs</span> {b?.name ?? "TBD"}{" "}
-          {b?.flag_emoji ?? "🏳️"}
-        </span>
-      </div>
-
+      {header}
       {servers.length ? (
         <>
           <div className="overflow-hidden rounded-3xl border border-border bg-night shadow-card">
@@ -205,7 +214,7 @@ function MatchPlayer({
               <iframe
                 key={activeUrl}
                 src={activeUrl}
-                title={title || "Live match"}
+                title={title || "Live"}
                 className="absolute inset-0 size-full"
                 // Brave-style protection: the sandbox withholds allow-popups and
                 // allow-top-navigation, so the player's ad scripts can't open
@@ -223,7 +232,7 @@ function MatchPlayer({
                 <span className="text-muted-foreground">
                   Give it 10–20 seconds to load first. If it still doesn&apos;t play, tap a
                   different server below — only some of these {servers.length} actually carry this
-                  match live, so try a few (waiting 10–20s on each) until one plays. The highlighted
+                  feed live, so try a few (waiting 10–20s on each) until one plays. The highlighted
                   one is selected.
                 </span>
               </p>
@@ -246,9 +255,46 @@ function MatchPlayer({
           )}
         </>
       ) : (
-        <Placeholder text="This match is on, but no stream link is set for it yet." />
+        <Placeholder text="No stream is available right now — try again at kickoff." />
       )}
     </div>
+  );
+}
+
+/** One on-air match's video — its own link plus the default appended as backup. */
+function MatchPlayer({
+  match,
+  streamUrl,
+  title,
+}: {
+  match: WatchMatch;
+  streamUrl: string;
+  title: string;
+}) {
+  const rawFeeds = feedsForLiveMatch(streamUrl, match.team_a?.code, match.team_b?.code);
+  const a = match.team_a;
+  const b = match.team_b;
+  return (
+    <FeedPlayer
+      rawFeeds={rawFeeds}
+      title={title}
+      header={
+        <div className="flex items-center gap-2 text-sm font-bold">
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+              match.status === "live" ? "bg-magenta/10 text-magenta" : "bg-primary/10 text-primary"
+            }`}
+          >
+            {match.status === "live" ? "● Live" : "On air"}
+          </span>
+          <span className="min-w-0 truncate">
+            {a?.flag_emoji ?? "🏳️"} {a?.name ?? "TBD"}{" "}
+            <span className="text-muted-foreground">vs</span> {b?.name ?? "TBD"}{" "}
+            {b?.flag_emoji ?? "🏳️"}
+          </span>
+        </div>
+      }
+    />
   );
 }
 
