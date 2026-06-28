@@ -109,22 +109,7 @@ function WatchPage() {
   const defaultFeeds = parseStreams(url).fallback;
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="flex items-center gap-2 font-display text-4xl font-bold">
-          <Tv className="size-8 text-primary" /> Watch Live
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          {onAirMatches.length > 1
-            ? `${onAirMatches.length} matches are on right now — watch them side by side below.`
-            : onAirMatches.length === 1
-              ? title || "Live match stream."
-              : defaultFeeds.length > 0
-                ? "Live football coverage — tap a different server if it doesn't load."
-                : "Live stream shows here when a match is on."}
-        </p>
-      </header>
-
+    <div className="space-y-4">
       {onAirMatches.length > 0 ? (
         <div className="space-y-4">
           {onAirMatches.length > 1 && (
@@ -170,6 +155,21 @@ function WatchPage() {
         <Placeholder text="No upcoming matches. Check back when the next fixture is scheduled." />
       )}
 
+      <header>
+        <h1 className="flex items-center gap-2 font-display text-2xl font-bold">
+          <Tv className="size-6 text-primary" /> Watch Live
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {onAirMatches.length > 1
+            ? `${onAirMatches.length} matches are on right now.`
+            : onAirMatches.length === 1
+              ? title || "Live match stream."
+              : defaultFeeds.length > 0
+                ? "Live football coverage — tap a different server if it doesn't load."
+                : "Live stream shows here when a match is on."}
+        </p>
+      </header>
+
       <p className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
         Focus World Cup Pool is a free, non-commercial game for pool members only. Live streams are
         gathered from publicly available third-party sources — we don&apos;t host, control, or sell
@@ -206,10 +206,10 @@ function FeedPlayer({
 
   return (
     <div className="space-y-3">
-      {header}
       {servers.length ? (
         <>
-          {/* Sticky so the video stays on screen while you scroll the page. */}
+          {/* Video first (opens on its own, no scrolling) + sticky so it stays
+              on screen while you scroll the page. */}
           <div className="sticky top-28 z-30 overflow-hidden rounded-3xl border border-border bg-night shadow-card lg:top-[72px]">
             <div className="relative aspect-video">
               <iframe
@@ -226,6 +226,7 @@ function FeedPlayer({
               />
             </div>
           </div>
+          {header}
           {servers.length > 1 && (
             <div className="rounded-2xl border border-border bg-surface p-4 shadow-card">
               <p className="text-sm">
@@ -256,7 +257,10 @@ function FeedPlayer({
           )}
         </>
       ) : (
-        <Placeholder text="No stream is available right now — try again at kickoff." />
+        <>
+          {header}
+          <Placeholder text="No stream is available right now — try again at kickoff." />
+        </>
       )}
     </div>
   );
