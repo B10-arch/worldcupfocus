@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPT, formatNPTDate } from "@/lib/time";
 
@@ -89,6 +90,20 @@ function BracketPage() {
       return (data ?? []) as Match[];
     },
   });
+
+  // Auto-scale the whole bracket to fit the container width — no horizontal
+  // scroll; the entire tree is always visible at once.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => setScale(Math.min(1, el.clientWidth / WIDTH));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const ms = matches ?? [];
   const r32 = ms.filter((m) => m.stage === "r32");
@@ -239,69 +254,81 @@ function BracketPage() {
       <header>
         <h1 className="font-display text-3xl font-bold md:text-4xl">Knockout Bracket</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Round of 32 → Final. Winners advance automatically as results come in. Scroll sideways to
-          follow the path to the trophy.
+          Round of 32 → Final. Winners advance automatically as results come in. Fits your screen —
+          pinch/zoom for detail.
         </p>
       </header>
 
       <div
-        className="overflow-auto rounded-3xl border border-emerald-400/20 p-4 shadow-card"
+        className="overflow-hidden rounded-3xl border border-emerald-400/20 p-3 shadow-card"
         style={{
           backgroundImage:
             "radial-gradient(120% 90% at 50% 0%, #0c2f2a 0%, #0a221f 55%, #07191a 100%)",
         }}
       >
-        <div className="relative" style={{ width: WIDTH, height: HEAD + HEIGHT + 8 }}>
-          {/* column headers */}
-          {HEADERS.map((h, i) => (
+        <div ref={wrapRef} className="w-full">
+          <div style={{ height: (HEAD + HEIGHT + 8) * scale }}>
             <div
-              key={i}
-              className="absolute -translate-x-1/2 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300"
-              style={{ left: i * COLW + BOX_W / 2, top: 0, width: BOX_W + COL_GAP }}
+              className="relative"
+              style={{
+                width: WIDTH,
+                height: HEAD + HEIGHT + 8,
+                transform: `scale(${scale})`,
+                transformOrigin: "top left",
+              }}
             >
-              {h}
-            </div>
-          ))}
-          {/* center title */}
-          <div
-            className="absolute -translate-x-1/2 text-center"
-            style={{ left: 4 * COLW + BOX_W / 2, top: HEAD + HEIGHT / 2 - 80 }}
-          >
-            <p className="font-display text-xl font-black leading-none text-white">WORLD CUP</p>
-            <p className="font-display text-4xl font-black leading-none text-amber-300">2026</p>
-          </div>
-
-          {/* connectors */}
-          <svg
-            className="absolute inset-0 overflow-visible"
-            style={{ top: HEAD, width: WIDTH, height: HEIGHT }}
-            fill="none"
-          >
-            {edges.map((pts, i) => (
-              <polyline
-                key={i}
-                points={pts}
-                stroke="#5eead4"
-                strokeOpacity="0.45"
-                strokeWidth="1.5"
-              />
-            ))}
-          </svg>
-
-          {/* boxes */}
-          <div className="absolute inset-x-0" style={{ top: HEAD }}>
-            {allNodes.map((n, i) => (
-              <Box key={i} n={n} />
-            ))}
-            {/* 3rd place label */}
-            {third && (
+              {/* column headers */}
+              {HEADERS.map((h, i) => (
+                <div
+                  key={i}
+                  className="absolute -translate-x-1/2 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300"
+                  style={{ left: i * COLW + BOX_W / 2, top: 0, width: BOX_W + COL_GAP }}
+                >
+                  {h}
+                </div>
+              ))}
+              {/* center title */}
               <div
-                className="absolute -translate-x-1/2 text-center text-[9px] font-bold uppercase tracking-wider text-emerald-300/80"
-                style={{ left: 4 * COLW + BOX_W / 2, top: third.cy - BOX_H / 2 - 16 }}
+                className="absolute -translate-x-1/2 text-center"
+                style={{ left: 4 * COLW + BOX_W / 2, top: HEAD + HEIGHT / 2 - 80 }}
               >
-                3rd Place
+                <p className="font-display text-xl font-black leading-none text-white">WORLD CUP</p>
+                <p className="font-display text-4xl font-black leading-none text-amber-300">2026</p>
               </div>
-            )}
+
+              {/* connectors */}
+              <svg
+                className="absolute inset-0 overflow-visible"
+                style={{ top: HEAD, width: WIDTH, height: HEIGHT }}
+                fill="none"
+              >
+                {edges.map((pts, i) => (
+                  <polyline
+                    key={i}
+                    points={pts}
+                    stroke="#5eead4"
+                    strokeOpacity="0.45"
+                    strokeWidth="1.5"
+                  />
+                ))}
+              </svg>
+
+              {/* boxes */}
+              <div className="absolute inset-x-0" style={{ top: HEAD }}>
+                {allNodes.map((n, i) => (
+                  <Box key={i} n={n} />
+                ))}
+                {/* 3rd place label */}
+                {third && (
+                  <div
+                    className="absolute -translate-x-1/2 text-center text-[9px] font-bold uppercase tracking-wider text-emerald-300/80"
+                    style={{ left: 4 * COLW + BOX_W / 2, top: third.cy - BOX_H / 2 - 16 }}
+                  >
+                    3rd Place
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
