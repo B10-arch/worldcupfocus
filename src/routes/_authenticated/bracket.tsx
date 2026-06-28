@@ -1,8 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatNPTDate } from "@/lib/time";
-import { Trophy } from "lucide-react";
+import { formatNPT, formatNPTDate } from "@/lib/time";
 
 export const Route = createFileRoute("/_authenticated/bracket")({
   head: () => ({ meta: [{ title: "Bracket · Focus World Cup Pool" }] }),
@@ -24,14 +23,13 @@ type Match = {
   team_b: Team | null;
 };
 
-// flagcdn gives a real flag image we can crop into a circle (emoji flags can't
-// be). Most teams' ISO-2 code is encoded in their flag emoji; the few that use a
-// subdivision flag (England/Scotland/Wales) need an explicit code.
+// Real flag image (cropped into a circle) — most teams' ISO-2 is encoded in
+// their flag emoji; subdivision flags (England etc.) need an explicit code.
 const ISO_OVERRIDE: Record<string, string> = { ENG: "gb-eng", SCO: "gb-sct", WAL: "gb-wls" };
 function flagImg(team: Team | null): string | null {
   if (!team) return null;
   const o = team.code ? ISO_OVERRIDE[team.code] : undefined;
-  if (o) return `https://flagcdn.com/w160/${o}.png`;
+  if (o) return `https://flagcdn.com/w80/${o}.png`;
   const cps = Array.from(team.flag_emoji ?? "");
   if (cps.length === 2) {
     const a = cps[0].codePointAt(0)!;
@@ -40,24 +38,48 @@ function flagImg(team: Team | null): string | null {
       const iso = (
         String.fromCharCode(65 + a - 0x1f1e6) + String.fromCharCode(65 + b - 0x1f1e6)
       ).toLowerCase();
-      return `https://flagcdn.com/w160/${iso}.png`;
+      return `https://flagcdn.com/w80/${iso}.png`;
     }
   }
   return null;
 }
 
-const STAGES = [
-  { key: "r16", label: "Round of 16" },
-  { key: "qf", label: "Quarter-Finals" },
-  { key: "sf", label: "Semi-Finals" },
-  { key: "third", label: "Third Place" },
-  { key: "final", label: "Final" },
-] as const;
+// ---- Geometry (computed so the connector lines always line up) ----
+const BOX_W = 152;
+const BOX_H = 56;
+const V_GAP = 16;
+const COL_GAP = 38;
+const COLW = BOX_W + COL_GAP;
+const ROW = BOX_H + V_GAP;
+const HEAD = 34; // header band
+const HEIGHT = 8 * ROW; // 8 R32 matches per side
+const WIDTH = 9 * COLW - COL_GAP;
+
+const COL_INDEX: Record<string, Record<string, number>> = {
+  left: { r32: 0, r16: 1, qf: 2, sf: 3 },
+  right: { r32: 8, r16: 7, qf: 6, sf: 5 },
+};
+const colX = (side: string, round: string) =>
+  side === "center" ? 4 * COLW : COL_INDEX[side]![round]! * COLW;
+
+const keyIds = (a: string, b: string) => [a, b].sort().join("-");
+
+type Node = {
+  round: string;
+  side: string;
+  x: number;
+  cy: number;
+  teams: [Team | null, Team | null];
+  match?: Match;
+  winner: Team | null;
+  loser: Team | null;
+  children?: Node[];
+};
 
 function BracketPage() {
   const { data: matches } = useQuery({
     queryKey: ["bracket"],
-    refetchInterval: 60_000,
+    refetchInterval: 60_000, // live: winners advance as results come in
     queryFn: async () => {
       const { data } = await supabase
         .from("matches")
@@ -68,88 +90,218 @@ function BracketPage() {
     },
   });
 
-  const r32 = (matches ?? []).filter((m) => m.stage === "r32");
-  const left = r32.slice(0, 8);
-  const right = r32.slice(8, 16);
+  const ms = matches ?? [];
+  const r32 = ms.filter((m) => m.stage === "r32");
+
+  // Look up a played match by the two teams in it (order-independent), so a
+  // winner propagates regardless of which round-row it was stored on.
+  const pairMap = new Map<string, Match>();
+  for (const m of ms)
+    if (m.team_a_id && m.team_b_id) pairMap.set(keyIds(m.team_a_id, m.team_b_id), m);
+  // Fallback rows per stage (kickoff order) for the kickoff time on empty boxes.
+  const pos: Record<string, Match[]> = {};
+  for (const st of ["r16", "qf", "sf", "final", "third"])
+    pos[st] = ms.filter((m) => m.stage === st);
+
+  function winnerOf(m: Match | undefined, a: Team | null, b: Team | null): Team | null {
+    if (!m) return null;
+    if (m.winner_team_id) return [a, b].find((t) => t && t.id === m.winner_team_id) ?? null;
+    if (m.score_a != null && m.score_b != null && m.score_a !== m.score_b) {
+      const id = m.score_a > m.score_b ? m.team_a_id : m.team_b_id;
+      return [a, b].find((t) => t && t.id === id) ?? null;
+    }
+    return null;
+  }
+
+  function resolve(n: Omit<Node, "winner" | "loser" | "match"> & { posIdx?: number }): Node {
+    const [a, b] = n.teams;
+    const match =
+      n.round === "r32"
+        ? (n as any).match
+        : ((a && b ? pairMap.get(keyIds(a.id, b.id)) : undefined) ??
+          (n.posIdx != null ? pos[n.round]?.[n.posIdx] : undefined));
+    const finished = !!match && (match.status === "finished" || match.winner_team_id != null);
+    const winner = finished ? winnerOf(match, a, b) : null;
+    const loser = finished && winner ? (winner.id === a?.id ? b : a) : null;
+    return { ...n, match, winner, loser } as Node;
+  }
+
+  function buildSide(rows: Match[], side: string, base: { r16: number; qf: number; sf: number }) {
+    const r = rows.map((m, i) =>
+      resolve({
+        round: "r32",
+        side,
+        x: colX(side, "r32"),
+        cy: i * ROW + BOX_H / 2,
+        teams: [m.team_a, m.team_b],
+        match: m,
+      } as any),
+    );
+    const r16 = [0, 1, 2, 3].map((j) =>
+      resolve({
+        round: "r16",
+        side,
+        posIdx: base.r16 + j,
+        x: colX(side, "r16"),
+        cy: (r[2 * j].cy + r[2 * j + 1].cy) / 2,
+        teams: [r[2 * j].winner, r[2 * j + 1].winner],
+        children: [r[2 * j], r[2 * j + 1]],
+      }),
+    );
+    const qf = [0, 1].map((k) =>
+      resolve({
+        round: "qf",
+        side,
+        posIdx: base.qf + k,
+        x: colX(side, "qf"),
+        cy: (r16[2 * k].cy + r16[2 * k + 1].cy) / 2,
+        teams: [r16[2 * k].winner, r16[2 * k + 1].winner],
+        children: [r16[2 * k], r16[2 * k + 1]],
+      }),
+    );
+    const sf = resolve({
+      round: "sf",
+      side,
+      posIdx: base.sf,
+      x: colX(side, "sf"),
+      cy: (qf[0].cy + qf[1].cy) / 2,
+      teams: [qf[0].winner, qf[1].winner],
+      children: [qf[0], qf[1]],
+    });
+    return { r32: r, r16, qf, sf };
+  }
+
+  const haveBracket = r32.length === 16;
+  const L = haveBracket ? buildSide(r32.slice(0, 8), "left", { r16: 0, qf: 0, sf: 0 }) : null;
+  const R = haveBracket ? buildSide(r32.slice(8, 16), "right", { r16: 4, qf: 2, sf: 1 }) : null;
+  const final =
+    L && R
+      ? resolve({
+          round: "final",
+          side: "center",
+          posIdx: 0,
+          x: colX("center", "final"),
+          cy: (L.sf.cy + R.sf.cy) / 2,
+          teams: [L.sf.winner, R.sf.winner],
+          children: [L.sf, R.sf],
+        })
+      : null;
+  const third =
+    L && R
+      ? resolve({
+          round: "third",
+          side: "center",
+          posIdx: 0,
+          x: colX("center", "final"),
+          cy: HEIGHT - BOX_H,
+          teams: [L.sf.loser, R.sf.loser],
+        })
+      : null;
+
+  const allNodes: Node[] =
+    L && R ? [...L.r32, ...L.r16, ...L.qf, L.sf, ...R.r32, ...R.r16, ...R.qf, R.sf] : [];
+  if (final) allNodes.push(final);
+  if (third) allNodes.push(third);
+
+  // Connector polylines from each parent to its two children.
+  const edges: string[] = [];
+  const addEdge = (parent: Node, child: Node) => {
+    const pcy = child.cy;
+    if (child.x < parent.x) {
+      const cR = child.x + BOX_W;
+      const pL = parent.x;
+      const mid = (cR + pL) / 2;
+      edges.push(`${cR},${pcy} ${mid},${pcy} ${mid},${parent.cy} ${pL},${parent.cy}`);
+    } else {
+      const cL = child.x;
+      const pR = parent.x + BOX_W;
+      const mid = (cL + pR) / 2;
+      edges.push(`${cL},${pcy} ${mid},${pcy} ${mid},${parent.cy} ${pR},${parent.cy}`);
+    }
+  };
+  for (const n of allNodes)
+    if (n.children && n.round !== "third") n.children.forEach((c) => addEdge(n, c));
+
+  const HEADERS = [
+    "Round of 32",
+    "Round of 16",
+    "Quarter-Finals",
+    "Semi-Finals",
+    "Final",
+    "Semi-Finals",
+    "Quarter-Finals",
+    "Round of 16",
+    "Round of 32",
+  ];
 
   return (
-    <div className="space-y-8">
-      {/* ---- Round of 32: the showcase bracket ---- */}
+    <div className="space-y-4">
+      <header>
+        <h1 className="font-display text-3xl font-bold md:text-4xl">Knockout Bracket</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Round of 32 → Final. Winners advance automatically as results come in. Scroll sideways to
+          follow the path to the trophy.
+        </p>
+      </header>
+
       <div
-        className="overflow-hidden rounded-3xl border border-amber-400/30 p-5 shadow-card md:p-8"
+        className="overflow-auto rounded-3xl border border-emerald-400/20 p-4 shadow-card"
         style={{
           backgroundImage:
-            "radial-gradient(120% 80% at 50% 0%, #4a3a12 0%, #2a2008 45%, #1a1405 100%)",
+            "radial-gradient(120% 90% at 50% 0%, #0c2f2a 0%, #0a221f 55%, #07191a 100%)",
         }}
       >
-        <header className="text-center">
-          <p className="text-[11px] font-bold uppercase tracking-[0.35em] text-amber-300/80">
-            2026 FIFA World Cup
-          </p>
-          <h1 className="mt-1 font-display text-4xl font-extrabold uppercase tracking-tight text-white md:text-5xl">
-            Knockouts
-          </h1>
-          <p className="mt-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-300">
-            Round of 32
-          </p>
-        </header>
-
-        <div className="mt-8 grid grid-cols-1 items-center gap-8 lg:grid-cols-[1fr_auto_1fr] lg:gap-4">
-          <div className="space-y-4">
-            {[0, 2, 4, 6].map((i) => (
-              <Pair key={i} a={left[i]} b={left[i + 1]} side="left" />
-            ))}
-          </div>
-
-          <div className="flex items-center justify-center py-2 lg:py-0">
-            <div className="flex size-28 items-center justify-center rounded-full border-2 border-amber-400/40 bg-amber-400/10 shadow-glow md:size-36">
-              <Trophy className="size-14 text-amber-300 md:size-20" />
+        <div className="relative" style={{ width: WIDTH, height: HEAD + HEIGHT + 8 }}>
+          {/* column headers */}
+          {HEADERS.map((h, i) => (
+            <div
+              key={i}
+              className="absolute -translate-x-1/2 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300"
+              style={{ left: i * COLW + BOX_W / 2, top: 0, width: BOX_W + COL_GAP }}
+            >
+              {h}
             </div>
+          ))}
+          {/* center title */}
+          <div
+            className="absolute -translate-x-1/2 text-center"
+            style={{ left: 4 * COLW + BOX_W / 2, top: HEAD + HEIGHT / 2 - 80 }}
+          >
+            <p className="font-display text-xl font-black leading-none text-white">WORLD CUP</p>
+            <p className="font-display text-4xl font-black leading-none text-amber-300">2026</p>
           </div>
 
-          <div className="space-y-4">
-            {[0, 2, 4, 6].map((i) => (
-              <Pair key={i} a={right[i]} b={right[i + 1]} side="right" />
+          {/* connectors */}
+          <svg
+            className="absolute inset-0 overflow-visible"
+            style={{ top: HEAD, width: WIDTH, height: HEIGHT }}
+            fill="none"
+          >
+            {edges.map((pts, i) => (
+              <polyline
+                key={i}
+                points={pts}
+                stroke="#5eead4"
+                strokeOpacity="0.45"
+                strokeWidth="1.5"
+              />
             ))}
-          </div>
-        </div>
-      </div>
+          </svg>
 
-      {/* ---- Later rounds (fill in as the bracket advances) ---- */}
-      <div>
-        <h2 className="mb-4 font-display text-2xl font-bold">Road to the Final</h2>
-        <div className="overflow-x-auto pb-4">
-          <div className="flex min-w-max gap-6">
-            {STAGES.map((s) => {
-              const list = (matches ?? []).filter((m) => m.stage === s.key);
-              return (
-                <div key={s.key} className="w-64 shrink-0">
-                  <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    {s.label}
-                  </h3>
-                  <div className="space-y-3">
-                    {list.length === 0 && (
-                      <div className="rounded-2xl border border-dashed border-border bg-surface/50 p-6 text-center text-xs text-muted-foreground">
-                        Awaiting qualifiers
-                      </div>
-                    )}
-                    {list.map((m) => (
-                      <div
-                        key={m.id}
-                        className="rounded-2xl border border-border bg-surface p-3 shadow-card"
-                      >
-                        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                          {m.kickoff_utc ? formatNPTDate(m.kickoff_utc) : ""}
-                        </p>
-                        <CardSide match={m} team={m.team_a} score={m.score_a} />
-                        <div className="my-1 h-px bg-border" />
-                        <CardSide match={m} team={m.team_b} score={m.score_b} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+          {/* boxes */}
+          <div className="absolute inset-x-0" style={{ top: HEAD }}>
+            {allNodes.map((n, i) => (
+              <Box key={i} n={n} />
+            ))}
+            {/* 3rd place label */}
+            {third && (
+              <div
+                className="absolute -translate-x-1/2 text-center text-[9px] font-bold uppercase tracking-wider text-emerald-300/80"
+                style={{ left: 4 * COLW + BOX_W / 2, top: third.cy - BOX_H / 2 - 16 }}
+              >
+                3rd Place
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -157,105 +309,74 @@ function BracketPage() {
   );
 }
 
-/** A pair of R32 matches, bracketed toward the centre like the poster. */
-function Pair({ a, b, side }: { a?: Match; b?: Match; side: "left" | "right" }) {
-  const bracket =
-    side === "left"
-      ? "rounded-r-2xl border-y border-r border-amber-400/25 pr-4"
-      : "rounded-l-2xl border-y border-l border-amber-400/25 pl-4";
-  return (
-    <div className={`relative space-y-4 py-2 ${bracket}`}>
-      {a && <MatchRow m={a} side={side} />}
-      {b && <MatchRow m={b} side={side} />}
-      {/* stub toward the trophy */}
-      <span
-        className={`absolute top-1/2 hidden h-px w-4 bg-amber-400/25 lg:block ${
-          side === "left" ? "right-0 translate-x-full" : "left-0 -translate-x-full"
-        }`}
-      />
-    </div>
-  );
-}
-
-/** Two circular flags + VS, mirrored for the right side (like the image). */
-function MatchRow({ m, side }: { m: Match; side: "left" | "right" }) {
+function Box({ n }: { n: Node }) {
+  const m = n.match;
+  const timeLabel = m?.kickoff_utc
+    ? m.status === "finished"
+      ? "FT"
+      : `${formatNPTDate(m.kickoff_utc)} · ${formatNPT(m.kickoff_utc)}`
+    : "";
+  const scoreFor = (t: Team | null) =>
+    m && t && (m.status === "finished" || m.status === "live")
+      ? t.id === m.team_a_id
+        ? m.score_a
+        : t.id === m.team_b_id
+          ? m.score_b
+          : null
+      : null;
+  const isFinal = n.round === "final";
   return (
     <div
-      className={`flex items-center justify-center gap-2 ${
-        side === "right" ? "flex-row-reverse" : ""
-      }`}
+      className="absolute"
+      style={{ left: n.x, top: n.cy - BOX_H / 2, width: BOX_W, height: BOX_H }}
     >
-      <FlagCircle
-        team={m.team_a}
-        won={m.winner_team_id != null && m.winner_team_id === m.team_a_id}
-      />
-      <span className="rounded-full bg-black/40 px-1.5 py-0.5 text-[9px] font-black text-amber-300">
-        VS
-      </span>
-      <FlagCircle
-        team={m.team_b}
-        won={m.winner_team_id != null && m.winner_team_id === m.team_b_id}
-      />
-    </div>
-  );
-}
-
-function FlagCircle({ team, won }: { team: Team | null; won: boolean }) {
-  const src = flagImg(team);
-  return (
-    <div className="flex w-[68px] flex-col items-center gap-1">
+      {timeLabel && (
+        <span className="absolute -top-4 left-0 right-0 truncate text-center text-[8px] font-semibold uppercase tracking-wide text-white/45">
+          {timeLabel}
+        </span>
+      )}
       <div
-        className={`flex size-12 items-center justify-center overflow-hidden rounded-full border-2 bg-white shadow md:size-14 ${
-          won ? "border-amber-300 ring-2 ring-amber-300/60" : "border-white/30"
+        className={`flex h-full flex-col overflow-hidden rounded-md border ${
+          isFinal ? "border-amber-300/70 bg-amber-300/5" : "border-white/15 bg-white/[0.03]"
         }`}
       >
-        {src ? (
-          <img
-            src={src}
-            alt={team?.name ?? "TBD"}
-            loading="lazy"
-            className="size-full object-cover"
-          />
-        ) : (
-          <span className="text-2xl">{team?.flag_emoji ?? "🏳️"}</span>
-        )}
+        <Slot
+          team={n.teams[0]}
+          score={scoreFor(n.teams[0])}
+          win={n.winner?.id === n.teams[0]?.id}
+        />
+        <div className="h-px bg-white/10" />
+        <Slot
+          team={n.teams[1]}
+          score={scoreFor(n.teams[1])}
+          win={n.winner?.id === n.teams[1]?.id}
+        />
       </div>
-      <span className="w-full truncate text-center text-[10px] font-bold text-white/90">
-        {team?.name ?? "TBD"}
-      </span>
     </div>
   );
 }
 
-/** One side of a later-round card (flag + name + score). */
-function CardSide({
-  match,
-  team,
-  score,
-}: {
-  match: Match;
-  team: Team | null;
-  score: number | null;
-}) {
+function Slot({ team, score, win }: { team: Team | null; score: number | null; win: boolean }) {
   const src = flagImg(team);
-  const won = match.winner_team_id != null && team?.id != null && match.winner_team_id === team.id;
   return (
-    <div
-      className={`flex items-center justify-between rounded-lg p-2 text-sm ${won ? "bg-primary/10 font-bold" : ""}`}
-    >
-      <span className="flex min-w-0 items-center gap-2">
-        <span className="size-5 overflow-hidden rounded-full border border-border bg-white">
-          {src ? (
-            <img src={src} alt="" loading="lazy" className="size-full object-cover" />
-          ) : (
-            <span className="flex size-full items-center justify-center text-xs">
-              {team?.flag_emoji ?? "🏳️"}
-            </span>
-          )}
-        </span>
-        <span className="truncate">{team?.name ?? "TBD"}</span>
+    <div className={`flex flex-1 items-center gap-1.5 px-1.5 ${win ? "bg-amber-300/20" : ""}`}>
+      <span className="size-4 shrink-0 overflow-hidden rounded-full bg-white/80">
+        {src ? (
+          <img src={src} alt="" loading="lazy" className="size-full object-cover" />
+        ) : team?.flag_emoji ? (
+          <span className="flex size-full items-center justify-center text-[10px]">
+            {team.flag_emoji}
+          </span>
+        ) : null}
       </span>
-      <span className="font-mono text-muted-foreground">{score ?? "—"}</span>
+      <span
+        className={`min-w-0 flex-1 truncate text-[10px] ${
+          win ? "font-bold text-white" : team ? "font-semibold text-white/90" : "text-white/35"
+        }`}
+      >
+        {team?.name ?? "TBD"}
+      </span>
+      <span className="shrink-0 font-mono text-[10px] text-amber-200/80">{score ?? ""}</span>
     </div>
   );
 }
