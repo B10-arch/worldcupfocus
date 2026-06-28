@@ -8,6 +8,7 @@ import {
   Brain,
   Medal,
   Tv,
+  Handshake,
   LogOut,
   ShieldCheck,
 } from "lucide-react";
@@ -20,6 +21,7 @@ const navItems = [
   { to: "/matches", label: "Matches", icon: CalendarDays },
   { to: "/teams", label: "Teams", icon: Flag },
   { to: "/bracket", label: "Bracket", icon: GitFork },
+  { to: "/friendly", label: "Side Bets", icon: Handshake },
   { to: "/quiz", label: "Trivia", icon: Brain },
   { to: "/leaderboard", label: "Leaderboard", icon: Medal },
   { to: "/watch", label: "Watch", icon: Tv },

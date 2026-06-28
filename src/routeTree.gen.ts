@@ -19,6 +19,7 @@ import { Route as AuthenticatedTeamsRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedQuizRouteImport } from './routes/_authenticated/quiz'
 import { Route as AuthenticatedMatchesRouteImport } from './routes/_authenticated/matches'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
+import { Route as AuthenticatedFriendlyRouteImport } from './routes/_authenticated/friendly'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedBracketRouteImport } from './routes/_authenticated/bracket'
 import { Route as AuthenticatedBetRouteImport } from './routes/_authenticated/bet'
@@ -75,6 +76,11 @@ const AuthenticatedLeaderboardRoute =
     path: '/leaderboard',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedFriendlyRoute = AuthenticatedFriendlyRouteImport.update({
+  id: '/friendly',
+  path: '/friendly',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/bet': typeof AuthenticatedBetRoute
   '/bracket': typeof AuthenticatedBracketRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/friendly': typeof AuthenticatedFriendlyRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/matches': typeof AuthenticatedMatchesRoute
   '/quiz': typeof AuthenticatedQuizRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/bet': typeof AuthenticatedBetRoute
   '/bracket': typeof AuthenticatedBracketRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/friendly': typeof AuthenticatedFriendlyRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/matches': typeof AuthenticatedMatchesRoute
   '/quiz': typeof AuthenticatedQuizRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/_authenticated/bet': typeof AuthenticatedBetRoute
   '/_authenticated/bracket': typeof AuthenticatedBracketRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/friendly': typeof AuthenticatedFriendlyRoute
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/_authenticated/matches': typeof AuthenticatedMatchesRoute
   '/_authenticated/quiz': typeof AuthenticatedQuizRoute
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/bet'
     | '/bracket'
     | '/dashboard'
+    | '/friendly'
     | '/leaderboard'
     | '/matches'
     | '/quiz'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/bet'
     | '/bracket'
     | '/dashboard'
+    | '/friendly'
     | '/leaderboard'
     | '/matches'
     | '/quiz'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/_authenticated/bet'
     | '/_authenticated/bracket'
     | '/_authenticated/dashboard'
+    | '/_authenticated/friendly'
     | '/_authenticated/leaderboard'
     | '/_authenticated/matches'
     | '/_authenticated/quiz'
@@ -283,6 +295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLeaderboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/friendly': {
+      id: '/_authenticated/friendly'
+      path: '/friendly'
+      fullPath: '/friendly'
+      preLoaderRoute: typeof AuthenticatedFriendlyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -337,6 +356,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBetRoute: typeof AuthenticatedBetRoute
   AuthenticatedBracketRoute: typeof AuthenticatedBracketRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedFriendlyRoute: typeof AuthenticatedFriendlyRoute
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
   AuthenticatedMatchesRoute: typeof AuthenticatedMatchesRoute
   AuthenticatedQuizRoute: typeof AuthenticatedQuizRoute
@@ -349,6 +369,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBetRoute: AuthenticatedBetRoute,
   AuthenticatedBracketRoute: AuthenticatedBracketRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedFriendlyRoute: AuthenticatedFriendlyRoute,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
   AuthenticatedMatchesRoute: AuthenticatedMatchesRoute,
   AuthenticatedQuizRoute: AuthenticatedQuizRoute,
