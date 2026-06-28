@@ -73,9 +73,11 @@ function FriendlyBetsPage() {
     betsByMatch.set(b.match_id, arr);
   }
 
+  const errMsg = betsQ.error
+    ? String((betsQ.error as any).message ?? JSON.stringify(betsQ.error))
+    : "";
   const notSetUp =
-    betsQ.isError &&
-    /relation|does not exist|friendly_bets|schema cache/i.test(String(betsQ.error));
+    betsQ.isError && /friendly_bets|schema cache|does not exist|relation/i.test(errMsg);
 
   return (
     <div className="space-y-6">
