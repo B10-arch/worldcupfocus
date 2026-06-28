@@ -10,7 +10,7 @@ import {
   isTournamentStarted,
   TOURNAMENT_START_UTC,
 } from "@/lib/time";
-import { Trophy, Sparkles, ArrowUpRight, Flame, CalendarClock } from "lucide-react";
+import { Trophy, Handshake, ArrowUpRight, Flame, CalendarClock } from "lucide-react";
 import { MatchHighlights } from "@/components/MatchHighlights";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -54,24 +54,6 @@ function Dashboard() {
     },
   });
 
-  const trivia = useQuery({
-    queryKey: ["trivia", "today"],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from("trivia_facts")
-        .select("*", { count: "exact", head: true });
-      const total = count ?? 0;
-      if (total === 0) return null; // no facts yet — avoids % 0 (NaN) and a stuck "Loading…"
-      const idx = Math.floor(Date.now() / 86400000) % total;
-      const { data } = await supabase
-        .from("trivia_facts")
-        .select("*")
-        .order("created_at")
-        .range(idx, idx);
-      return data?.[0] ?? null;
-    },
-  });
-
   const myPicks = useQuery({
     queryKey: ["my-picks", user.id],
     queryFn: async () =>
@@ -89,21 +71,6 @@ function Dashboard() {
     queryFn: async () => {
       const { data } = await (supabase as any).rpc("get_total_bet_count");
       return (data as number | null) ?? 0;
-    },
-  });
-
-  const quizProgress = useQuery({
-    queryKey: ["quiz-progress", user.id],
-    queryFn: async () => {
-      const [{ count: total }, { count: done }] = await Promise.all([
-        supabase.from("quiz_questions").select("id", { count: "exact", head: true }),
-        supabase
-          .from("quiz_progress")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("correct", true),
-      ]);
-      return { total: total ?? 0, done: done ?? 0 };
     },
   });
 
@@ -141,7 +108,7 @@ function Dashboard() {
           </p>
         </div>
       )}
-      {/* Hero + trivia */}
+      {/* Hero + side bets */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div
           className="relative col-span-1 overflow-hidden rounded-3xl p-8 text-white lg:col-span-2"
@@ -204,42 +171,29 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Daily trivia */}
+        {/* Friendly side bets */}
         <div className="flex flex-col justify-between rounded-3xl border border-border bg-surface p-8 shadow-card">
           <div>
             <div className="flex items-center gap-2 text-magenta">
-              <Sparkles className="size-3" />
-              <span className="text-xs font-bold uppercase tracking-widest">Daily Trivia Fact</span>
+              <Handshake className="size-3" />
+              <span className="text-xs font-bold uppercase tracking-widest">
+                Friendly Side Bets
+              </span>
             </div>
             <h3 className="mt-4 font-display text-xl font-bold leading-tight">
-              {trivia.isLoading ? "Loading…" : (trivia.data?.title ?? "More trivia coming soon")}
+              Challenge a friend on a Round of 32 game
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {trivia.isLoading
-                ? ""
-                : (trivia.data?.body ?? "Daily facts will appear here as they're added.")}
+              Pick a team and name your stake — money or a dare. Someone takes the other side and it
+              locks in. One bet per person, per game.
             </p>
           </div>
           <div className="mt-6">
-            <div className="mb-2 flex justify-between text-xs font-bold uppercase">
-              <span className="text-muted-foreground">Quiz Progress</span>
-              <span className="text-primary">
-                {quizProgress.data?.done ?? 0}/{quizProgress.data?.total ?? 100}
-              </span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{
-                  width: `${quizProgress.data && quizProgress.data.total > 0 ? (quizProgress.data.done / quizProgress.data.total) * 100 : 0}%`,
-                }}
-              />
-            </div>
             <Link
-              to="/quiz"
-              className="mt-4 inline-block w-full rounded-xl bg-secondary py-3 text-center text-sm font-bold text-primary transition hover:bg-primary/5"
+              to="/friendly"
+              className="inline-block w-full rounded-xl bg-secondary py-3 text-center text-sm font-bold text-primary transition hover:bg-primary/5"
             >
-              Play trivia →
+              Make a side bet →
             </Link>
           </div>
         </div>

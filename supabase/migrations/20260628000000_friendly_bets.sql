@@ -3,19 +3,20 @@
 -- Flow: a member OFFERS a bet on a match — they pick a team and write a
 -- free-text stake (money OR an activity, e.g. "Rs. 500" or "loser buys momo").
 -- Anyone else can APPROVE it (they take the other team), which LOCKS it.
--- Exactly ONE bet per match (unique match_id), and offers/accepts are only
--- allowed before kickoff.
+-- Each member may offer ONE bet per match, so MULTIPLE members can each have a
+-- bet on the same game. Offers/accepts are only allowed before kickoff.
 
 create table if not exists public.friendly_bets (
   id uuid primary key default gen_random_uuid(),
-  match_id uuid not null unique references public.matches (id) on delete cascade,
+  match_id uuid not null references public.matches (id) on delete cascade,
   proposer_id uuid not null references public.profiles (id) on delete cascade,
   proposer_team_id uuid references public.teams (id) on delete set null,
   acceptor_id uuid references public.profiles (id) on delete set null,
   stake text not null,
   status text not null default 'open' check (status in ('open', 'accepted')),
   created_at timestamptz not null default now(),
-  accepted_at timestamptz
+  accepted_at timestamptz,
+  unique (match_id, proposer_id) -- one offer per member per game
 );
 
 alter table public.friendly_bets enable row level security;
