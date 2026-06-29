@@ -4,10 +4,10 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPTDate, formatNPT } from "@/lib/time";
 import { toast } from "sonner";
-import { Handshake, Lock, Trophy, X } from "lucide-react";
+import { Handshake, Lock, Trophy, X, Target } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/friendly")({
-  head: () => ({ meta: [{ title: "Friendly Bets · Focus World Cup Pool" }] }),
+  head: () => ({ meta: [{ title: "Side Bets · Focus World Cup Pool" }] }),
   component: FriendlyBetsPage,
 });
 
@@ -26,12 +26,14 @@ type Bet = {
   proposer_id: string;
   proposer_team_id: string | null;
   acceptor_id: string | null;
+  target_id: string | null;
   stake: string;
   status: string;
   proposer: { display_name: string | null } | null;
   acceptor: { display_name: string | null } | null;
   team: Team | null;
 };
+type Member = { id: string; display_name: string | null };
 
 function FriendlyBetsPage() {
   const { user } = Route.useRouteContext();
@@ -66,6 +68,21 @@ function FriendlyBetsPage() {
     },
   });
 
+  // Pool members — for choosing who to challenge.
+  const membersQ = useQuery({
+    queryKey: ["pool-members"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, display_name")
+        .order("display_name");
+      return (data ?? []) as Member[];
+    },
+  });
+  const nameById = new Map<string, string>(
+    (membersQ.data ?? []).map((m) => [m.id, m.display_name ?? "A member"]),
+  );
+
   const betsByMatch = new Map<string, Bet[]>();
   for (const b of betsQ.data ?? []) {
     const arr = betsByMatch.get(b.match_id) ?? [];
@@ -86,9 +103,10 @@ function FriendlyBetsPage() {
           <Handshake className="size-8 text-primary" /> Side Bets
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Offer a friendly bet on a Round of 32 game — pick a team and name your stake (money or a
-          dare). Anyone in the pool can take it; once accepted it locks. You can offer one bet per
-          game, so several people can bet on the same match.
+          Offer a bet on a Round of 32 game — pick a team and name your stake (money or a dare).
+          Leave it open for anyone, or{" "}
+          <span className="font-semibold text-foreground">challenge a specific member</span> who
+          then approves to lock it in. Everyone can see who has bets going.
         </p>
       </header>
 
@@ -109,6 +127,8 @@ function FriendlyBetsPage() {
             match={m}
             bets={betsByMatch.get(m.id) ?? []}
             userId={user.id}
+            members={(membersQ.data ?? []).filter((mem) => mem.id !== user.id)}
+            nameById={nameById}
             disabled={notSetUp}
           />
         ))}
@@ -121,16 +141,21 @@ function GameCard({
   match,
   bets,
   userId,
+  members,
+  nameById,
   disabled,
 }: {
   match: Match;
   bets: Bet[];
   userId: string;
+  members: Member[];
+  nameById: Map<string, string>;
   disabled: boolean;
 }) {
   const qc = useQueryClient();
   const [teamId, setTeamId] = useState("");
   const [stake, setStake] = useState("");
+  const [targetId, setTargetId] = useState("");
   const [busy, setBusy] = useState(false);
 
   const a = match.team_a;
@@ -143,17 +168,24 @@ function GameCard({
   async function offer() {
     if (!teamId || !stake.trim()) return toast.error("Pick a team and enter a stake.");
     setBusy(true);
-    const { error } = await (supabase as any).from("friendly_bets").insert({
+    const payload: Record<string, unknown> = {
       match_id: match.id,
       proposer_id: userId,
       proposer_team_id: teamId,
       stake: stake.trim(),
-    });
+    };
+    if (targetId) payload.target_id = targetId;
+    const { error } = await (supabase as any).from("friendly_bets").insert(payload);
     setBusy(false);
-    if (error) return toast.error(error.message);
-    toast.success("Bet offered — waiting for someone to take it.");
+    if (error) {
+      if (/target_id|column/i.test(error.message))
+        return toast.error("Directed bets need a quick DB update — run the latest SQL first.");
+      return toast.error(error.message);
+    }
+    toast.success(targetId ? "Challenge sent — waiting for them to approve." : "Bet offered.");
     setStake("");
     setTeamId("");
+    setTargetId("");
     refresh();
   }
 
@@ -181,6 +213,7 @@ function GameCard({
             bet={bet}
             match={match}
             userId={userId}
+            nameById={nameById}
             started={started}
             finished={finished}
             onChange={refresh}
@@ -216,12 +249,24 @@ function GameCard({
               placeholder="Your stake — e.g. Rs. 500, or loser buys momo 🥟"
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
+            <select
+              value={targetId}
+              onChange={(e) => setTargetId(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Open to anyone in the pool</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>
+                  Challenge {m.display_name ?? "member"}
+                </option>
+              ))}
+            </select>
             <button
               onClick={offer}
               disabled={busy}
               className="w-full rounded-xl bg-pitch px-3 py-2 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
             >
-              Offer bet
+              {targetId ? "Send challenge" : "Offer bet"}
             </button>
           </div>
         )}
@@ -238,6 +283,7 @@ function BetRow({
   bet,
   match,
   userId,
+  nameById,
   started,
   finished,
   onChange,
@@ -245,6 +291,7 @@ function BetRow({
   bet: Bet;
   match: Match;
   userId: string;
+  nameById: Map<string, string>;
   started: boolean;
   finished: boolean;
   onChange: () => void;
@@ -255,6 +302,8 @@ function BetRow({
   const proposerTeam = bet.team;
   const otherTeam = a && b ? (bet.proposer_team_id === a.id ? b : a) : null;
   const mine = bet.proposer_id === userId;
+  const targetName = bet.target_id ? (nameById.get(bet.target_id) ?? "a member") : null;
+  const iAmTarget = bet.target_id === userId;
   const wonByProposer = finished && match.winner_team_id === bet.proposer_team_id;
   const wonByAcceptor = finished && !!bet.acceptor_id && match.winner_team_id === otherTeam?.id;
 
@@ -301,17 +350,35 @@ function BetRow({
     );
   }
 
-  // open offer
+  // ---- open offer ----
+  const canAccept = !mine && !started && (bet.target_id == null || iAmTarget);
   return (
-    <div className="flex items-center justify-between gap-2 rounded-xl border border-dashed border-border bg-background p-2.5">
-      <p className="min-w-0 text-sm">
-        <span className="font-bold">
-          {mine ? "You" : (bet.proposer?.display_name ?? "A member")}
-        </span>{" "}
-        back {proposerTeam?.flag_emoji} {proposerTeam?.name}
-        <span className="text-muted-foreground"> · </span>
-        <span className="font-semibold">{bet.stake}</span>
-      </p>
+    <div
+      className={`flex items-center justify-between gap-2 rounded-xl border border-dashed p-2.5 ${
+        iAmTarget ? "border-primary bg-primary/5" : "border-border bg-background"
+      }`}
+    >
+      <div className="min-w-0 text-sm">
+        {iAmTarget && (
+          <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+            <Target className="size-3" /> Challenge for you
+          </span>
+        )}
+        <p>
+          <span className="font-bold">
+            {mine ? "You" : (bet.proposer?.display_name ?? "A member")}
+          </span>{" "}
+          back {proposerTeam?.flag_emoji} {proposerTeam?.name}
+          {targetName && (
+            <>
+              <span className="text-muted-foreground"> · challenging </span>
+              <span className="font-semibold">{iAmTarget ? "you" : targetName}</span>
+            </>
+          )}
+          <span className="text-muted-foreground"> · </span>
+          <span className="font-semibold">{bet.stake}</span>
+        </p>
+      </div>
       {mine ? (
         <button
           onClick={cancel}
@@ -320,9 +387,7 @@ function BetRow({
         >
           <X className="size-3" /> Cancel
         </button>
-      ) : started ? (
-        <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">Closed</span>
-      ) : (
+      ) : canAccept ? (
         <button
           onClick={accept}
           disabled={busy}
@@ -330,6 +395,12 @@ function BetRow({
         >
           Accept · take {otherTeam?.flag_emoji}
         </button>
+      ) : started ? (
+        <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">Closed</span>
+      ) : (
+        <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
+          waiting for {targetName}
+        </span>
       )}
     </div>
   );
