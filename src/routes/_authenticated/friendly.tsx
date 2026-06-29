@@ -4,7 +4,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPTDate, formatNPT } from "@/lib/time";
 import { toast } from "sonner";
-import { Handshake, Lock, Trophy, X, Target } from "lucide-react";
+import { Handshake, Lock, Trophy, X, Target, Pencil } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/friendly")({
   head: () => ({ meta: [{ title: "Side Bets · Focus World Cup Pool" }] }),
@@ -34,6 +34,7 @@ type Bet = {
   team: Team | null;
 };
 type Member = { id: string; display_name: string | null };
+type FormValues = { teamId: string; stake: string; targetId: string };
 
 function FriendlyBetsPage() {
   const { user } = Route.useRouteContext();
@@ -68,7 +69,6 @@ function FriendlyBetsPage() {
     },
   });
 
-  // Pool members — for choosing who to challenge.
   const membersQ = useQuery({
     queryKey: ["pool-members"],
     queryFn: async () => {
@@ -105,8 +105,8 @@ function FriendlyBetsPage() {
         <p className="mt-2 text-muted-foreground">
           Offer a bet on a Round of 32 game — pick a team and name your stake (money or a dare).
           Leave it open for anyone, or{" "}
-          <span className="font-semibold text-foreground">challenge a specific member</span> who
-          then approves to lock it in. Everyone can see who has bets going.
+          <span className="font-semibold text-foreground">challenge a specific member</span> (they
+          can accept or reject). Edit or cancel your own offers anytime before kickoff.
         </p>
       </header>
 
@@ -137,6 +137,164 @@ function FriendlyBetsPage() {
   );
 }
 
+/** Searchable member picker — type a name instead of scrolling a long list. */
+function MemberPicker({
+  members,
+  value,
+  onChange,
+}: {
+  members: Member[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const selected = members.find((m) => m.id === value);
+
+  if (value && selected) {
+    return (
+      <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
+        <span className="flex items-center gap-1.5">
+          <Target className="size-3.5 text-primary" /> Challenging{" "}
+          <span className="font-bold">{selected.display_name ?? "member"}</span>
+        </span>
+        <button
+          onClick={() => onChange("")}
+          className="text-xs font-bold text-muted-foreground hover:text-magenta"
+        >
+          Change
+        </button>
+      </div>
+    );
+  }
+
+  const filtered = members
+    .filter((m) => (m.display_name ?? "").toLowerCase().includes(q.trim().toLowerCase()))
+    .slice(0, 8);
+
+  return (
+    <div className="relative">
+      <input
+        value={q}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Open to anyone — or search a name to challenge"
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+      />
+      {open && q.trim() && (
+        <div className="absolute z-20 mt-1 max-h-44 w-full overflow-auto rounded-lg border border-border bg-surface shadow-card">
+          {filtered.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-muted-foreground">No members found.</p>
+          ) : (
+            filtered.map((m) => (
+              <button
+                key={m.id}
+                onMouseDown={() => {
+                  onChange(m.id);
+                  setOpen(false);
+                  setQ("");
+                }}
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-primary/5"
+              >
+                Challenge <span className="font-semibold">{m.display_name ?? "member"}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Shared form for offering a new bet and for editing an existing one. */
+function BetForm({
+  teamA,
+  teamB,
+  members,
+  initial,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  teamA: Team | null;
+  teamB: Team | null;
+  members: Member[];
+  initial?: Partial<FormValues>;
+  submitLabel?: string;
+  onSubmit: (v: FormValues) => Promise<boolean>;
+  onCancel?: () => void;
+}) {
+  const [teamId, setTeamId] = useState(initial?.teamId ?? "");
+  const [stake, setStake] = useState(initial?.stake ?? "");
+  const [targetId, setTargetId] = useState(initial?.targetId ?? "");
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    if (!teamId || !stake.trim()) return toast.error("Pick a team and enter a stake.");
+    setBusy(true);
+    const ok = await onSubmit({ teamId, stake: stake.trim(), targetId });
+    setBusy(false);
+    if (ok && !onCancel) {
+      setTeamId("");
+      setStake("");
+      setTargetId("");
+    }
+  }
+
+  const label = submitLabel ?? (targetId ? "Send challenge" : "Offer bet");
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        {[teamA, teamB].map(
+          (t) =>
+            t && (
+              <button
+                key={t.id}
+                onClick={() => setTeamId(t.id)}
+                className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-bold transition ${
+                  teamId === t.id
+                    ? "border-primary bg-primary/10 text-foreground"
+                    : "border-border bg-background text-muted-foreground hover:border-primary"
+                }`}
+              >
+                {t.flag_emoji} {t.name}
+              </button>
+            ),
+        )}
+      </div>
+      <input
+        value={stake}
+        onChange={(e) => setStake(e.target.value)}
+        placeholder="Your stake — e.g. Rs. 500, or loser buys momo 🥟"
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+      />
+      <MemberPicker members={members} value={targetId} onChange={setTargetId} />
+      <div className="flex gap-2">
+        <button
+          onClick={submit}
+          disabled={busy}
+          className="flex-1 rounded-xl bg-pitch px-3 py-2 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+        >
+          {busy ? "Saving…" : label}
+        </button>
+        {onCancel && (
+          <button
+            onClick={onCancel}
+            className="rounded-xl border border-border px-3 py-2 text-sm font-bold text-muted-foreground transition hover:bg-secondary"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function GameCard({
   match,
   bets,
@@ -153,40 +311,33 @@ function GameCard({
   disabled: boolean;
 }) {
   const qc = useQueryClient();
-  const [teamId, setTeamId] = useState("");
-  const [stake, setStake] = useState("");
-  const [targetId, setTargetId] = useState("");
-  const [busy, setBusy] = useState(false);
-
   const a = match.team_a;
   const b = match.team_b;
   const started = Date.parse(match.kickoff_utc) <= Date.now();
   const finished = match.status === "finished";
   const refresh = () => qc.invalidateQueries({ queryKey: ["friendly-bets"] });
   const myBet = bets.find((x) => x.proposer_id === userId);
+  // Rejected offers are only shown to their own proposer.
+  const visible = bets.filter((x) => x.status !== "rejected" || x.proposer_id === userId);
 
-  async function offer() {
-    if (!teamId || !stake.trim()) return toast.error("Pick a team and enter a stake.");
-    setBusy(true);
+  async function offer(v: FormValues): Promise<boolean> {
     const payload: Record<string, unknown> = {
       match_id: match.id,
       proposer_id: userId,
-      proposer_team_id: teamId,
-      stake: stake.trim(),
+      proposer_team_id: v.teamId,
+      stake: v.stake,
     };
-    if (targetId) payload.target_id = targetId;
+    if (v.targetId) payload.target_id = v.targetId;
     const { error } = await (supabase as any).from("friendly_bets").insert(payload);
-    setBusy(false);
     if (error) {
       if (/target_id|column/i.test(error.message))
-        return toast.error("Directed bets need a quick DB update — run the latest SQL first.");
-      return toast.error(error.message);
+        toast.error("Directed bets need the latest SQL update first.");
+      else toast.error(error.message);
+      return false;
     }
-    toast.success(targetId ? "Challenge sent — waiting for them to approve." : "Bet offered.");
-    setStake("");
-    setTeamId("");
-    setTargetId("");
+    toast.success(v.targetId ? "Challenge sent — waiting for them to approve." : "Bet offered.");
     refresh();
+    return true;
   }
 
   return (
@@ -207,12 +358,13 @@ function GameCard({
       </div>
 
       <div className="mt-3 space-y-3 border-t border-border pt-3">
-        {bets.map((bet) => (
+        {visible.map((bet) => (
           <BetRow
             key={bet.id}
             bet={bet}
             match={match}
             userId={userId}
+            members={members}
             nameById={nameById}
             started={started}
             finished={finished}
@@ -221,53 +373,11 @@ function GameCard({
         ))}
 
         {!myBet && !started && !disabled && (
-          <div className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
               {bets.length ? "Add your own bet" : "Be the first — offer a bet"}
             </p>
-            <div className="flex gap-2">
-              {[a, b].map(
-                (t) =>
-                  t && (
-                    <button
-                      key={t.id}
-                      onClick={() => setTeamId(t.id)}
-                      className={`flex-1 rounded-lg border px-2 py-1.5 text-xs font-bold transition ${
-                        teamId === t.id
-                          ? "border-primary bg-primary/10 text-foreground"
-                          : "border-border bg-background text-muted-foreground hover:border-primary"
-                      }`}
-                    >
-                      {t.flag_emoji} {t.name}
-                    </button>
-                  ),
-              )}
-            </div>
-            <input
-              value={stake}
-              onChange={(e) => setStake(e.target.value)}
-              placeholder="Your stake — e.g. Rs. 500, or loser buys momo 🥟"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            />
-            <select
-              value={targetId}
-              onChange={(e) => setTargetId(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">Open to anyone in the pool</option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  Challenge {m.display_name ?? "member"}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={offer}
-              disabled={busy}
-              className="w-full rounded-xl bg-pitch px-3 py-2 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
-            >
-              {targetId ? "Send challenge" : "Offer bet"}
-            </button>
+            <BetForm teamA={a} teamB={b} members={members} onSubmit={offer} />
           </div>
         )}
 
@@ -283,6 +393,7 @@ function BetRow({
   bet,
   match,
   userId,
+  members,
   nameById,
   started,
   finished,
@@ -291,12 +402,14 @@ function BetRow({
   bet: Bet;
   match: Match;
   userId: string;
+  members: Member[];
   nameById: Map<string, string>;
   started: boolean;
   finished: boolean;
   onChange: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
   const a = match.team_a;
   const b = match.team_b;
   const proposerTeam = bet.team;
@@ -307,12 +420,12 @@ function BetRow({
   const wonByProposer = finished && match.winner_team_id === bet.proposer_team_id;
   const wonByAcceptor = finished && !!bet.acceptor_id && match.winner_team_id === otherTeam?.id;
 
-  async function cancel() {
+  async function remove() {
     setBusy(true);
     const { error } = await (supabase as any).from("friendly_bets").delete().eq("id", bet.id);
     setBusy(false);
     if (error) return toast.error(error.message);
-    toast.message("Offer cancelled.");
+    toast.message("Removed.");
     onChange();
   }
   async function accept() {
@@ -323,7 +436,40 @@ function BetRow({
     toast.success("Bet accepted & locked. 🤝");
     onChange();
   }
+  async function reject() {
+    setBusy(true);
+    const { error } = await (supabase as any).rpc("reject_friendly_bet", { p_bet_id: bet.id });
+    setBusy(false);
+    if (error)
+      return toast.error(
+        /function|does not exist/i.test(error.message)
+          ? "Reject needs the latest SQL update first."
+          : error.message,
+      );
+    toast.message("Challenge rejected.");
+    onChange();
+  }
+  async function saveEdit(v: FormValues): Promise<boolean> {
+    const { data, error } = await (supabase as any)
+      .from("friendly_bets")
+      .update({ proposer_team_id: v.teamId, stake: v.stake, target_id: v.targetId || null })
+      .eq("id", bet.id)
+      .select();
+    if (error) {
+      toast.error(error.message);
+      return false;
+    }
+    if (!data?.length) {
+      toast.error("Editing needs the latest SQL update first.");
+      return false;
+    }
+    toast.success("Bet updated.");
+    setEditing(false);
+    onChange();
+    return true;
+  }
 
+  // ---- accepted / locked ----
   if (bet.status === "accepted") {
     return (
       <div className="rounded-xl border border-border bg-background p-2.5">
@@ -346,6 +492,47 @@ function BetRow({
             {wonByProposer ? bet.proposer?.display_name : bet.acceptor?.display_name} wins!
           </p>
         )}
+      </div>
+    );
+  }
+
+  // ---- rejected (only the proposer sees this) ----
+  if (bet.status === "rejected") {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background p-2.5">
+        <p className="min-w-0 text-sm text-muted-foreground">
+          {targetName ? <b>{targetName}</b> : "Someone"} declined your bet ·{" "}
+          <span className="font-semibold">{bet.stake}</span>
+        </p>
+        <button
+          onClick={remove}
+          disabled={busy}
+          className="shrink-0 rounded-full border border-border px-2.5 py-1 text-xs font-bold text-muted-foreground hover:border-primary disabled:opacity-50"
+        >
+          Dismiss
+        </button>
+      </div>
+    );
+  }
+
+  // ---- editing my open bet ----
+  if (editing) {
+    return (
+      <div className="rounded-xl border border-primary/40 bg-primary/5 p-2.5">
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-primary">Edit your bet</p>
+        <BetForm
+          teamA={a}
+          teamB={b}
+          members={members}
+          initial={{
+            teamId: bet.proposer_team_id ?? "",
+            stake: bet.stake,
+            targetId: bet.target_id ?? "",
+          }}
+          submitLabel="Save changes"
+          onSubmit={saveEdit}
+          onCancel={() => setEditing(false)}
+        />
       </div>
     );
   }
@@ -379,29 +566,52 @@ function BetRow({
           <span className="font-semibold">{bet.stake}</span>
         </p>
       </div>
-      {mine ? (
-        <button
-          onClick={cancel}
-          disabled={busy}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-bold text-muted-foreground hover:border-magenta hover:text-magenta disabled:opacity-50"
-        >
-          <X className="size-3" /> Cancel
-        </button>
-      ) : canAccept ? (
-        <button
-          onClick={accept}
-          disabled={busy}
-          className="shrink-0 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
-        >
-          Accept · take {otherTeam?.flag_emoji}
-        </button>
-      ) : started ? (
-        <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">Closed</span>
-      ) : (
-        <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
-          waiting for {targetName}
-        </span>
-      )}
+      <div className="flex shrink-0 items-center gap-1.5">
+        {mine ? (
+          <>
+            {!started && (
+              <button
+                onClick={() => setEditing(true)}
+                className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-bold text-muted-foreground hover:border-primary hover:text-foreground"
+              >
+                <Pencil className="size-3" /> Edit
+              </button>
+            )}
+            <button
+              onClick={remove}
+              disabled={busy}
+              className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-bold text-muted-foreground hover:border-magenta hover:text-magenta disabled:opacity-50"
+            >
+              <X className="size-3" /> Cancel
+            </button>
+          </>
+        ) : canAccept ? (
+          <>
+            <button
+              onClick={accept}
+              disabled={busy}
+              className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+            >
+              Accept · {otherTeam?.flag_emoji}
+            </button>
+            {iAmTarget && (
+              <button
+                onClick={reject}
+                disabled={busy}
+                className="rounded-full border border-border px-3 py-1.5 text-xs font-bold text-muted-foreground hover:border-magenta hover:text-magenta disabled:opacity-50"
+              >
+                Reject
+              </button>
+            )}
+          </>
+        ) : started ? (
+          <span className="text-[10px] font-semibold text-muted-foreground">Closed</span>
+        ) : (
+          <span className="text-[10px] font-semibold text-muted-foreground">
+            waiting for {targetName}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
