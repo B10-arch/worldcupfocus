@@ -84,6 +84,27 @@ function FriendlyBetsPage() {
     (membersQ.data ?? []).map((m) => [m.id, m.display_name ?? "A member"]),
   );
 
+  // Open offers you've passed on are hidden from your own list (kept locally —
+  // the offer stays live for everyone else, since it's open to the whole pool).
+  const [hidden, setHidden] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      return new Set<string>(JSON.parse(localStorage.getItem("fb-hidden") ?? "[]"));
+    } catch {
+      return new Set();
+    }
+  });
+  const hideBet = (id: string) =>
+    setHidden((prev) => {
+      const next = new Set(prev).add(id);
+      try {
+        localStorage.setItem("fb-hidden", JSON.stringify([...next]));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+
   const betsByMatch = new Map<string, Bet[]>();
   for (const b of betsQ.data ?? []) {
     const arr = betsByMatch.get(b.match_id) ?? [];
@@ -130,6 +151,8 @@ function FriendlyBetsPage() {
             userId={user.id}
             members={(membersQ.data ?? []).filter((mem) => mem.id !== user.id)}
             nameById={nameById}
+            hidden={hidden}
+            onHide={hideBet}
             disabled={notSetUp}
           />
         ))}
@@ -302,6 +325,8 @@ function GameCard({
   userId,
   members,
   nameById,
+  hidden,
+  onHide,
   disabled,
 }: {
   match: Match;
@@ -309,6 +334,8 @@ function GameCard({
   userId: string;
   members: Member[];
   nameById: Map<string, string>;
+  hidden: Set<string>;
+  onHide: (id: string) => void;
   disabled: boolean;
 }) {
   const qc = useQueryClient();
@@ -318,8 +345,12 @@ function GameCard({
   const finished = match.status === "finished";
   const refresh = () => qc.invalidateQueries({ queryKey: ["friendly-bets"] });
   const myBet = bets.find((x) => x.proposer_id === userId);
-  // Rejected offers are only shown to their own proposer.
-  const visible = bets.filter((x) => x.status !== "rejected" || x.proposer_id === userId);
+  // Hide rejected offers (except to their proposer) and ones you've passed on.
+  const visible = bets.filter(
+    (x) =>
+      (x.status !== "rejected" || x.proposer_id === userId) &&
+      (!hidden.has(x.id) || x.proposer_id === userId),
+  );
 
   async function offer(v: FormValues): Promise<boolean> {
     const payload: Record<string, unknown> = {
@@ -370,6 +401,7 @@ function GameCard({
             started={started}
             finished={finished}
             onChange={refresh}
+            onHide={onHide}
           />
         ))}
 
@@ -399,6 +431,7 @@ function BetRow({
   started,
   finished,
   onChange,
+  onHide,
 }: {
   bet: Bet;
   match: Match;
@@ -408,6 +441,7 @@ function BetRow({
   started: boolean;
   finished: boolean;
   onChange: () => void;
+  onHide: (id: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -440,6 +474,14 @@ function BetRow({
     onChange();
   }
   async function reject() {
+    // Open offer aimed at no one in particular → just pass on it (hide from your
+    // own list; it stays live for the rest of the pool).
+    if (!iAmTarget) {
+      onHide(bet.id);
+      toast.message("Passed — hidden from your list.");
+      return;
+    }
+    // A challenge addressed to you → formally decline it (the proposer is told).
     setBusy(true);
     const { error } = await (supabase as any).rpc("reject_friendly_bet", { p_bet_id: bet.id });
     setBusy(false);
@@ -592,15 +634,14 @@ function BetRow({
             >
               Accept · {otherTeam?.flag_emoji}
             </button>
-            {iAmTarget && (
-              <button
-                onClick={reject}
-                disabled={busy}
-                className="rounded-full border border-border px-3 py-1.5 text-xs font-bold text-muted-foreground hover:border-magenta hover:text-magenta disabled:opacity-50"
-              >
-                Reject
-              </button>
-            )}
+            <button
+              onClick={reject}
+              disabled={busy}
+              title={iAmTarget ? "Decline this challenge" : "Pass — hide from your list"}
+              className="rounded-full border border-border px-3 py-1.5 text-xs font-bold text-muted-foreground hover:border-magenta hover:text-magenta disabled:opacity-50"
+            >
+              Reject
+            </button>
           </>
         ) : started ? (
           <span className="text-[10px] font-semibold text-muted-foreground">Closed</span>
