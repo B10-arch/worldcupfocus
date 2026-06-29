@@ -29,8 +29,6 @@ type Bet = {
   target_id: string | null;
   stake: string;
   status: string;
-  proposer: { display_name: string | null } | null;
-  acceptor: { display_name: string | null } | null;
   team: Team | null;
 };
 type Member = { id: string; display_name: string | null };
@@ -60,23 +58,26 @@ function FriendlyBetsPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("friendly_bets")
-        .select(
-          "*, proposer:profiles!friendly_bets_proposer_id_fkey(display_name), acceptor:profiles!friendly_bets_acceptor_id_fkey(display_name), team:teams!friendly_bets_proposer_team_id_fkey(id,name,flag_emoji,code)",
-        )
+        .select("*, team:teams!friendly_bets_proposer_team_id_fkey(id,name,flag_emoji,code)")
         .order("created_at");
       if (error) throw error;
       return (data ?? []) as Bet[];
     },
   });
 
+  // Names come from leaderboard_entries (readable by every member, unlike the
+  // locked-down profiles table) so everyone — not just admins — sees who's who.
   const membersQ = useQuery({
     queryKey: ["pool-members"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("profiles")
-        .select("id, display_name")
+        .from("leaderboard_entries")
+        .select("user_id, display_name")
         .order("display_name");
-      return (data ?? []) as Member[];
+      return ((data ?? []) as { user_id: string; display_name: string | null }[]).map((r) => ({
+        id: r.user_id,
+        display_name: r.display_name,
+      })) as Member[];
     },
   });
   const nameById = new Map<string, string>(
@@ -415,6 +416,8 @@ function BetRow({
   const proposerTeam = bet.team;
   const otherTeam = a && b ? (bet.proposer_team_id === a.id ? b : a) : null;
   const mine = bet.proposer_id === userId;
+  const proposerName = nameById.get(bet.proposer_id) ?? "A member";
+  const acceptorName = bet.acceptor_id ? (nameById.get(bet.acceptor_id) ?? "A member") : "A member";
   const targetName = bet.target_id ? (nameById.get(bet.target_id) ?? "a member") : null;
   const iAmTarget = bet.target_id === userId;
   const wonByProposer = finished && match.winner_team_id === bet.proposer_team_id;
@@ -477,19 +480,16 @@ function BetRow({
           <Lock className="size-3" /> Locked
         </div>
         <p className="mt-1 text-sm">
-          <span className="font-bold">{bet.proposer?.display_name ?? "A member"}</span>{" "}
-          {proposerTeam?.flag_emoji}
+          <span className="font-bold">{proposerName}</span> {proposerTeam?.flag_emoji}
           <span className="text-muted-foreground"> vs </span>
-          <span className="font-bold">{bet.acceptor?.display_name ?? "A member"}</span>{" "}
-          {otherTeam?.flag_emoji}
+          <span className="font-bold">{acceptorName}</span> {otherTeam?.flag_emoji}
         </p>
         <p className="text-xs text-muted-foreground">
           Stake: <span className="font-semibold text-foreground">{bet.stake}</span>
         </p>
         {finished && (wonByProposer || wonByAcceptor) && (
           <p className="mt-1 flex items-center gap-1 text-xs font-bold text-accent">
-            <Trophy className="size-3.5" />{" "}
-            {wonByProposer ? bet.proposer?.display_name : bet.acceptor?.display_name} wins!
+            <Trophy className="size-3.5" /> {wonByProposer ? proposerName : acceptorName} wins!
           </p>
         )}
       </div>
@@ -552,10 +552,8 @@ function BetRow({
           </span>
         )}
         <p>
-          <span className="font-bold">
-            {mine ? "You" : (bet.proposer?.display_name ?? "A member")}
-          </span>{" "}
-          back {proposerTeam?.flag_emoji} {proposerTeam?.name}
+          <span className="font-bold">{mine ? "You" : proposerName}</span> back{" "}
+          {proposerTeam?.flag_emoji} {proposerTeam?.name}
           {targetName && (
             <>
               <span className="text-muted-foreground"> · challenging </span>
