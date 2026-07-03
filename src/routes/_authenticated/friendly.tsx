@@ -46,7 +46,9 @@ function FriendlyBetsPage() {
         .select(
           "id, kickoff_utc, status, winner_team_id, team_a:teams!matches_team_a_id_fkey(id,name,flag_emoji,code), team_b:teams!matches_team_b_id_fkey(id,name,flag_emoji,code)",
         )
-        .eq("stage", "r32")
+        .in("stage", ["r32", "r16"])
+        .not("team_a_id", "is", null)
+        .not("team_b_id", "is", null)
         .order("kickoff_utc");
       return (data ?? []) as Match[];
     },
@@ -118,6 +120,18 @@ function FriendlyBetsPage() {
   const notSetUp =
     betsQ.isError && /friendly_bets|schema cache|does not exist|relation/i.test(errMsg);
 
+  // Upcoming games first (soonest first), then finished (most recent first) — so
+  // R16 fixtures sit on top as the Round of 32 wraps up.
+  const now = Date.now();
+  const sortedMatches = [...(matchesQ.data ?? [])].sort((a, b) => {
+    const ka = Date.parse(a.kickoff_utc);
+    const kb = Date.parse(b.kickoff_utc);
+    const ua = ka > now;
+    const ub = kb > now;
+    if (ua !== ub) return ua ? -1 : 1;
+    return ua ? ka - kb : kb - ka;
+  });
+
   return (
     <div className="space-y-6">
       <header>
@@ -125,8 +139,8 @@ function FriendlyBetsPage() {
           <Handshake className="size-8 text-primary" /> Side Bets
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Offer a bet on a Round of 32 game — pick a team and name your stake (money or a dare).
-          Leave it open for anyone, or{" "}
+          Offer a bet on any knockout game (Round of 32 &amp; Round of 16) — pick a team and name
+          your stake (money or a dare). Leave it open for anyone, or{" "}
           <span className="font-semibold text-foreground">challenge a specific member</span> (they
           can accept or reject). Edit or cancel your own offers anytime before kickoff.
         </p>
@@ -143,7 +157,7 @@ function FriendlyBetsPage() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        {(matchesQ.data ?? []).map((m) => (
+        {sortedMatches.map((m) => (
           <GameCard
             key={m.id}
             match={m}
