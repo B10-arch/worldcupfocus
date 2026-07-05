@@ -4,7 +4,17 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPTDate, formatNPT } from "@/lib/time";
 import { toast } from "sonner";
-import { Handshake, Lock, Trophy, X, Target, Pencil } from "lucide-react";
+import {
+  Handshake,
+  Lock,
+  Trophy,
+  X,
+  Target,
+  Pencil,
+  Wallet,
+  ArrowRight,
+  Coins,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/friendly")({
   head: () => ({ meta: [{ title: "Side Bets · Focus World Cup Pool" }] }),
@@ -33,6 +43,105 @@ type Bet = {
 };
 type Member = { id: string; display_name: string | null };
 type FormValues = { teamId: string; stake: string; targetId: string };
+
+type Transfer = { fromId: string; toId: string; amount: number };
+type Activity = { debtorId: string; creditorId: string; stake: string; label: string };
+type Settlement = {
+  transfers: Transfer[];
+  activities: Activity[];
+  settledCount: number;
+  pendingCount: number;
+};
+
+/**
+ * Pull a rupee amount out of a free-text stake. Matches "500", "Rs 500",
+ * "500/-", "₹1,000", "500 rupees" — but leaves dares like "loser buys momo" or
+ * "2 plates of momo" as null so they're settled as activities, not cash.
+ */
+function parseMoney(raw: string): number | null {
+  const s = raw.toLowerCase().replace(/,/g, "").trim();
+  const pats = [
+    /(?:rs\.?|npr|nrs\.?|₹|rupees?)\s*(\d+(?:\.\d+)?)/,
+    /(\d+(?:\.\d+)?)\s*(?:rs\.?|npr|nrs\.?|rupees?|\/-)/,
+    /^(\d+(?:\.\d+)?)$/,
+  ];
+  for (const p of pats) {
+    const m = s.match(p);
+    if (m) return Number(m[1]);
+  }
+  return null;
+}
+
+const fmtMoney = (n: number) => "Rs " + n.toLocaleString("en-IN");
+
+/**
+ * Tally every locked bet on a finished game into a net "who pays whom" list.
+ * Proposer backs proposer_team_id; the acceptor implicitly backs the other
+ * team; the match winner decides who owes whom the stake. Cash stakes net out
+ * per pair; non-cash dares are listed separately.
+ */
+function computeSettlement(bets: Bet[], matchById: Map<string, Match>): Settlement {
+  const owe = new Map<string, number>(); // `${debtorId}>${creditorId}` -> total
+  const activities: Activity[] = [];
+  let settledCount = 0;
+  let pendingCount = 0;
+
+  for (const bet of bets) {
+    if (bet.status !== "accepted" || !bet.acceptor_id) continue;
+    const m = matchById.get(bet.match_id);
+    if (!m) continue;
+    if (m.status !== "finished" || !m.winner_team_id) {
+      pendingCount++;
+      continue;
+    }
+    const otherId =
+      m.team_a && m.team_b
+        ? bet.proposer_team_id === m.team_a.id
+          ? m.team_b.id
+          : m.team_a.id
+        : null;
+    let debtor: string;
+    let creditor: string;
+    if (m.winner_team_id === bet.proposer_team_id) {
+      creditor = bet.proposer_id;
+      debtor = bet.acceptor_id;
+    } else if (otherId && m.winner_team_id === otherId) {
+      creditor = bet.acceptor_id;
+      debtor = bet.proposer_id;
+    } else {
+      continue; // winner isn't either bet team — skip defensively
+    }
+    settledCount++;
+    const amt = parseMoney(bet.stake);
+    if (amt && amt > 0) {
+      const k = `${debtor}>${creditor}`;
+      owe.set(k, (owe.get(k) ?? 0) + amt);
+    } else {
+      activities.push({
+        debtorId: debtor,
+        creditorId: creditor,
+        stake: bet.stake,
+        label: `${m.team_a?.name ?? "?"} v ${m.team_b?.name ?? "?"}`,
+      });
+    }
+  }
+
+  // Net each unordered pair so we show one clean line per pair of people.
+  const transfers: Transfer[] = [];
+  const done = new Set<string>();
+  for (const key of owe.keys()) {
+    const [a, b] = key.split(">");
+    const pk = [a, b].sort().join("|");
+    if (done.has(pk)) continue;
+    done.add(pk);
+    const net = (owe.get(`${a}>${b}`) ?? 0) - (owe.get(`${b}>${a}`) ?? 0);
+    if (net > 0) transfers.push({ fromId: a, toId: b, amount: net });
+    else if (net < 0) transfers.push({ fromId: b, toId: a, amount: -net });
+  }
+  transfers.sort((x, y) => y.amount - x.amount);
+
+  return { transfers, activities, settledCount, pendingCount };
+}
 
 function FriendlyBetsPage() {
   const { user } = Route.useRouteContext();
@@ -86,6 +195,11 @@ function FriendlyBetsPage() {
     (membersQ.data ?? []).map((m) => [m.id, m.display_name ?? "A member"]),
   );
 
+  // "Settle up" — net out every locked bet on a finished game into who-pays-whom.
+  const [showSettle, setShowSettle] = useState(false);
+  const matchById = new Map<string, Match>((matchesQ.data ?? []).map((m) => [m.id, m]));
+  const settlement = computeSettlement(betsQ.data ?? [], matchById);
+
   // Open offers you've passed on are hidden from your own list (kept locally —
   // the offer stays live for everyone else, since it's open to the whole pool).
   const [hidden, setHidden] = useState<Set<string>>(() => {
@@ -134,16 +248,29 @@ function FriendlyBetsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="flex items-center gap-2 font-display text-4xl font-bold">
-          <Handshake className="size-8 text-primary" /> Side Bets
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          Offer a bet on any knockout game (Round of 32 &amp; Round of 16) — pick a team and name
-          your stake (money or a dare). Leave it open for anyone, or{" "}
-          <span className="font-semibold text-foreground">challenge a specific member</span> (they
-          can accept or reject). Edit or cancel your own offers anytime before kickoff.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="flex items-center gap-2 font-display text-4xl font-bold">
+            <Handshake className="size-8 text-primary" /> Side Bets
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            Offer a bet on any knockout game (Round of 32 &amp; Round of 16) — pick a team and name
+            your stake (money or a dare). Leave it open for anyone, or{" "}
+            <span className="font-semibold text-foreground">challenge a specific member</span> (they
+            can accept or reject). Edit or cancel your own offers anytime before kickoff.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowSettle(true)}
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-card transition hover:opacity-90"
+        >
+          <Wallet className="size-4" /> Settle Up
+          {settlement.transfers.length > 0 && (
+            <span className="rounded-full bg-black/20 px-1.5 text-xs">
+              {settlement.transfers.length}
+            </span>
+          )}
+        </button>
       </header>
 
       {notSetUp && (
@@ -170,6 +297,203 @@ function FriendlyBetsPage() {
             disabled={notSetUp}
           />
         ))}
+      </div>
+
+      {showSettle && (
+        <SettleModal
+          settlement={settlement}
+          nameById={nameById}
+          userId={user.id}
+          onClose={() => setShowSettle(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Popup summarising who owes whom, netted across all settled bets. */
+function SettleModal({
+  settlement,
+  nameById,
+  userId,
+  onClose,
+}: {
+  settlement: Settlement;
+  nameById: Map<string, string>;
+  userId: string;
+  onClose: () => void;
+}) {
+  const { transfers, activities, settledCount, pendingCount } = settlement;
+  const name = (id: string) => nameById.get(id) ?? "A member";
+  const label = (id: string) => (id === userId ? "You" : name(id));
+
+  const youGet = transfers.filter((t) => t.toId === userId);
+  const youPay = transfers.filter((t) => t.fromId === userId);
+  const totalGet = youGet.reduce((s, t) => s + t.amount, 0);
+  const totalPay = youPay.reduce((s, t) => s + t.amount, 0);
+  const net = totalGet - totalPay;
+  const involved = youGet.length > 0 || youPay.length > 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[85vh] w-full max-w-lg overflow-auto rounded-2xl border border-border bg-surface p-5 shadow-card"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h2 className="flex items-center gap-2 font-display text-2xl font-bold">
+              <Wallet className="size-6 text-primary" /> Settle Up
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Netted from {settledCount} settled {settledCount === 1 ? "bet" : "bets"}
+              {pendingCount > 0 && ` · ${pendingCount} still pending`}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        {settledCount === 0 ? (
+          <div className="mt-6 rounded-xl border border-dashed border-border bg-background p-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              No bets have settled yet. Once locked bets&apos; games finish, who-pays-whom shows up
+              here.
+            </p>
+            {pendingCount > 0 && (
+              <p className="mt-2 text-xs font-semibold text-foreground">
+                {pendingCount} locked {pendingCount === 1 ? "bet is" : "bets are"} waiting on
+                results.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="mt-4 space-y-5">
+            {/* Your bottom line */}
+            {involved && (
+              <div className="rounded-xl border border-primary/40 bg-primary/5 p-3">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Your bottom line
+                </p>
+                <p
+                  className={`mt-0.5 text-lg font-bold ${
+                    net > 0 ? "text-pitch" : net < 0 ? "text-magenta" : "text-foreground"
+                  }`}
+                >
+                  {net > 0
+                    ? `You collect ${fmtMoney(net)} overall`
+                    : net < 0
+                      ? `You owe ${fmtMoney(-net)} overall`
+                      : "You're all square 👍"}
+                </p>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {youGet.map((t) => (
+                    <li key={`g-${t.fromId}`} className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground">
+                        Collect from{" "}
+                        <span className="font-semibold text-foreground">{name(t.fromId)}</span>
+                      </span>
+                      <span className="font-bold text-pitch">+{fmtMoney(t.amount)}</span>
+                    </li>
+                  ))}
+                  {youPay.map((t) => (
+                    <li key={`p-${t.toId}`} className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground">
+                        Pay <span className="font-semibold text-foreground">{name(t.toId)}</span>
+                      </span>
+                      <span className="font-bold text-magenta">−{fmtMoney(t.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Everyone's cash settlements */}
+            {transfers.length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <Coins className="size-3.5" /> Who pays whom
+                </p>
+                <div className="space-y-1.5">
+                  {transfers.map((t) => {
+                    const mine = t.fromId === userId || t.toId === userId;
+                    return (
+                      <div
+                        key={`${t.fromId}-${t.toId}`}
+                        className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm ${
+                          mine ? "border-primary/40 bg-primary/5" : "border-border bg-background"
+                        }`}
+                      >
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span
+                            className={`truncate font-bold ${
+                              t.fromId === userId ? "text-magenta" : ""
+                            }`}
+                          >
+                            {label(t.fromId)}
+                          </span>
+                          <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+                          <span
+                            className={`truncate font-bold ${t.toId === userId ? "text-pitch" : ""}`}
+                          >
+                            {label(t.toId)}
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-bold">{fmtMoney(t.amount)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Non-cash dares */}
+            {activities.length > 0 && (
+              <div>
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  🎲 Dares &amp; non-cash bets
+                </p>
+                <div className="space-y-1.5">
+                  {activities.map((act, i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                    >
+                      <p>
+                        <span
+                          className={`font-bold ${act.debtorId === userId ? "text-magenta" : ""}`}
+                        >
+                          {label(act.debtorId)}
+                        </span>{" "}
+                        owes{" "}
+                        <span
+                          className={`font-bold ${act.creditorId === userId ? "text-pitch" : ""}`}
+                        >
+                          {label(act.creditorId)}
+                        </span>
+                        : <span className="font-semibold">{act.stake}</span>
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">{act.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Cash stakes (e.g. &quot;Rs 500&quot;) are netted per pair — if two people owe each
+              other, only the difference is shown. Stakes without a rupee amount are listed as
+              dares. Only locked bets on finished games count.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
