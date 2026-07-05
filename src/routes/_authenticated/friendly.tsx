@@ -44,7 +44,8 @@ type Bet = {
 type Member = { id: string; display_name: string | null };
 type FormValues = { teamId: string; stake: string; targetId: string };
 
-type Transfer = { fromId: string; toId: string; amount: number };
+type TransferGame = { label: string; amount: number; offset: boolean };
+type Transfer = { fromId: string; toId: string; amount: number; games: TransferGame[] };
 type Activity = { debtorId: string; creditorId: string; stake: string; label: string };
 type Settlement = {
   transfers: Transfer[];
@@ -81,7 +82,10 @@ const fmtMoney = (n: number) => "Rs " + n.toLocaleString("en-IN");
  * per pair; non-cash dares are listed separately.
  */
 function computeSettlement(bets: Bet[], matchById: Map<string, Match>): Settlement {
-  const owe = new Map<string, number>(); // `${debtorId}>${creditorId}` -> total
+  // Per unordered pair, keep each cash bet as a line (debtor -> creditor) so we
+  // can show which games make up the netted total.
+  type Line = { fromId: string; toId: string; amount: number; label: string };
+  const lines = new Map<string, Line[]>();
   const activities: Activity[] = [];
   let settledCount = 0;
   let pendingCount = 0;
@@ -112,33 +116,39 @@ function computeSettlement(bets: Bet[], matchById: Map<string, Match>): Settleme
       continue; // winner isn't either bet team — skip defensively
     }
     settledCount++;
+    const label = `${m.team_a?.name ?? "?"} v ${m.team_b?.name ?? "?"}`;
     const amt = parseMoney(bet.stake);
     if (amt && amt > 0) {
-      const k = `${debtor}>${creditor}`;
-      owe.set(k, (owe.get(k) ?? 0) + amt);
+      const pk = [debtor, creditor].sort().join("|");
+      const arr = lines.get(pk) ?? [];
+      arr.push({ fromId: debtor, toId: creditor, amount: amt, label });
+      lines.set(pk, arr);
     } else {
-      activities.push({
-        debtorId: debtor,
-        creditorId: creditor,
-        stake: bet.stake,
-        label: `${m.team_a?.name ?? "?"} v ${m.team_b?.name ?? "?"}`,
-      });
+      activities.push({ debtorId: debtor, creditorId: creditor, stake: bet.stake, label });
     }
   }
 
-  // Net each unordered pair so we show one clean line per pair of people.
+  // Net each pair into one line, keeping the per-game breakdown (with a flag for
+  // any game whose direction runs against the net — i.e. it offsets the total).
   const transfers: Transfer[] = [];
-  const done = new Set<string>();
-  for (const key of owe.keys()) {
-    const [a, b] = key.split(">");
-    const pk = [a, b].sort().join("|");
-    if (done.has(pk)) continue;
-    done.add(pk);
-    const net = (owe.get(`${a}>${b}`) ?? 0) - (owe.get(`${b}>${a}`) ?? 0);
-    if (net > 0) transfers.push({ fromId: a, toId: b, amount: net });
-    else if (net < 0) transfers.push({ fromId: b, toId: a, amount: -net });
+  for (const [pk, arr] of lines) {
+    const [x, y] = pk.split("|");
+    let xToY = 0;
+    let yToX = 0;
+    for (const l of arr) {
+      if (l.fromId === x) xToY += l.amount;
+      else yToX += l.amount;
+    }
+    const net = xToY - yToX;
+    if (net === 0) continue; // fully offset — they're square
+    const fromId = net > 0 ? x : y;
+    const toId = net > 0 ? y : x;
+    const games: TransferGame[] = arr
+      .map((l) => ({ label: l.label, amount: l.amount, offset: l.fromId !== fromId }))
+      .sort((a, b) => Number(a.offset) - Number(b.offset) || b.amount - a.amount);
+    transfers.push({ fromId, toId, amount: Math.abs(net), games });
   }
-  transfers.sort((x, y) => y.amount - x.amount);
+  transfers.sort((a, b) => b.amount - a.amount);
 
   return { transfers, activities, settledCount, pendingCount };
 }
@@ -427,26 +437,44 @@ function SettleModal({
                     return (
                       <div
                         key={`${t.fromId}-${t.toId}`}
-                        className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm ${
+                        className={`rounded-xl border px-3 py-2 text-sm ${
                           mine ? "border-primary/40 bg-primary/5" : "border-border bg-background"
                         }`}
                       >
-                        <span className="flex min-w-0 items-center gap-1.5">
-                          <span
-                            className={`truncate font-bold ${
-                              t.fromId === userId ? "text-magenta" : ""
-                            }`}
-                          >
-                            {label(t.fromId)}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <span
+                              className={`truncate font-bold ${
+                                t.fromId === userId ? "text-magenta" : ""
+                              }`}
+                            >
+                              {label(t.fromId)}
+                            </span>
+                            <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+                            <span
+                              className={`truncate font-bold ${
+                                t.toId === userId ? "text-pitch" : ""
+                              }`}
+                            >
+                              {label(t.toId)}
+                            </span>
                           </span>
-                          <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                          <span
-                            className={`truncate font-bold ${t.toId === userId ? "text-pitch" : ""}`}
-                          >
-                            {label(t.toId)}
-                          </span>
-                        </span>
-                        <span className="shrink-0 font-bold">{fmtMoney(t.amount)}</span>
+                          <span className="shrink-0 font-bold">{fmtMoney(t.amount)}</span>
+                        </div>
+                        <ul className="mt-1.5 space-y-0.5 border-t border-border/60 pt-1.5 text-[11px] text-muted-foreground">
+                          {t.games.map((g, i) => (
+                            <li key={i} className="flex items-center justify-between gap-2">
+                              <span className="min-w-0 truncate">
+                                {g.offset && "↩ "}
+                                {g.label}
+                              </span>
+                              <span className="shrink-0">
+                                {g.offset ? "−" : ""}
+                                {fmtMoney(g.amount)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     );
                   })}
@@ -488,9 +516,10 @@ function SettleModal({
             )}
 
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              Cash stakes (e.g. &quot;Rs 500&quot;) are netted per pair — if two people owe each
-              other, only the difference is shown. Stakes without a rupee amount are listed as
-              dares. Only locked bets on finished games count.
+              Each cash line lists the games behind it. Stakes are netted per pair — if two people
+              owe each other, only the difference is shown, and a game marked ↩ ran the other way
+              (it reduced the total). Stakes without a rupee amount are listed as dares. Only locked
+              bets on finished games count.
             </p>
           </div>
         )}
