@@ -244,22 +244,24 @@ function FeedPlayer({
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                 allowFullScreen
               />
-              {/* Our own always-clickable buttons — the player's own ad layer can
-                  swallow taps, but these never do. Left = Sound (opens fullscreen
-                  where the speaker is reachable), right = Fullscreen. */}
+            </div>
+            {/* Always-visible control bar under the video — our own buttons, so
+                the stream's ad layer can't swallow the tap (and no hovering to
+                reveal them). Left = Sound, right = Fullscreen. */}
+            <div className="flex items-center justify-between gap-2 border-t border-white/10 bg-night px-3 py-2">
               <button
                 onClick={unmuteHelp}
                 title="Sound — opens fullscreen, then tap the player's speaker to unmute"
-                className="absolute left-2.5 top-2.5 z-40 inline-flex items-center gap-1 rounded-lg bg-black/60 px-2.5 py-1.5 text-xs font-bold text-white backdrop-blur transition hover:bg-black/80"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-white/20"
               >
-                <Volume2 className="size-3.5" /> Sound
+                <Volume2 className="size-4" /> Sound
               </button>
               <button
                 onClick={goFullscreen}
                 title="Fullscreen — easiest way to reach the sound & controls"
-                className="absolute right-2.5 top-2.5 z-40 inline-flex items-center gap-1 rounded-lg bg-black/60 px-2.5 py-1.5 text-xs font-bold text-white backdrop-blur transition hover:bg-black/80"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-white/20"
               >
-                <Maximize2 className="size-3.5" /> Fullscreen
+                <Maximize2 className="size-4" /> Fullscreen
               </button>
             </div>
           </div>
