@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatNPTFull } from "@/lib/time";
 import { feedsForLiveMatch, parseStreams } from "@/lib/streams";
 import { expandFeeds, type Server } from "@/lib/hely-streams";
-import { Tv, Trophy } from "lucide-react";
+import { Tv, Trophy, Maximize2, Volume2 } from "lucide-react";
 
 // Start the stream 30 min before kickoff — the broadcast's pre-match show
 // (commentary + lineups) is already running by then.
@@ -204,6 +204,17 @@ function FeedPlayer({
   const [feedIdx, setFeedIdx] = useState(0);
   const activeUrl = servers[feedIdx]?.url ?? servers[0]?.url ?? "";
 
+  // Fullscreen our own way: in fullscreen the player's native volume/controls
+  // sit above the ad layer, so the sound is actually reachable.
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const goFullscreen = () => {
+    const el = iframeRef.current as
+      | (HTMLIFrameElement & { webkitRequestFullscreen?: () => void })
+      | null;
+    if (el?.requestFullscreen) el.requestFullscreen().catch(() => {});
+    else el?.webkitRequestFullscreen?.();
+  };
+
   return (
     <div className="space-y-3">
       {servers.length ? (
@@ -214,6 +225,7 @@ function FeedPlayer({
             <div className="relative aspect-video">
               <iframe
                 key={activeUrl}
+                ref={iframeRef}
                 src={activeUrl}
                 title={title || "Live"}
                 className="absolute inset-0 size-full"
@@ -224,7 +236,34 @@ function FeedPlayer({
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                 allowFullScreen
               />
+              {/* Our own always-clickable fullscreen button — the player's own ad
+                  layer can swallow taps, but this never does. */}
+              <button
+                onClick={goFullscreen}
+                title="Fullscreen — easiest way to reach the sound & controls"
+                className="absolute right-2.5 top-2.5 z-40 inline-flex items-center gap-1 rounded-lg bg-black/60 px-2.5 py-1.5 text-xs font-bold text-white backdrop-blur transition hover:bg-black/80"
+              >
+                <Maximize2 className="size-3.5" /> Fullscreen
+              </button>
             </div>
+          </div>
+          {/* Sound + pop-up guidance. */}
+          <div className="flex items-start gap-2 rounded-2xl border border-border bg-surface px-4 py-2.5 text-xs text-muted-foreground">
+            <Volume2 className="mt-0.5 size-4 shrink-0 text-primary" />
+            <p>
+              <span className="font-bold text-foreground">Starts muted.</span> Tap the video, then
+              the speaker icon to turn sound on — the{" "}
+              <span className="font-semibold text-foreground">
+                first tap can be absorbed by a blocked ad, so tap again
+              </span>
+              , or hit <span className="font-semibold text-foreground">Fullscreen</span> for easier
+              controls. Pop-up windows are already blocked here; any ad shown{" "}
+              <span className="font-semibold text-foreground">inside</span> the stream comes from
+              the source — a blocker like{" "}
+              <span className="font-semibold text-foreground">Brave</span>,{" "}
+              <span className="font-semibold text-foreground">uBlock Origin</span>, or{" "}
+              <span className="font-semibold text-foreground">AdGuard DNS</span> removes those.
+            </p>
           </div>
           {header}
           {servers.length > 1 && (
