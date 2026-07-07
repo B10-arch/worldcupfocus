@@ -6,6 +6,7 @@ import { formatNPTFull } from "@/lib/time";
 import { feedsForLiveMatch, parseStreams } from "@/lib/streams";
 import { expandFeeds, type Server } from "@/lib/hely-streams";
 import { Tv, Trophy, Maximize2, Volume2 } from "lucide-react";
+import { toast } from "sonner";
 
 // Start the stream 30 min before kickoff — the broadcast's pre-match show
 // (commentary + lineups) is already running by then.
@@ -214,6 +215,13 @@ function FeedPlayer({
     if (el?.requestFullscreen) el.requestFullscreen().catch(() => {});
     else el?.webkitRequestFullscreen?.();
   };
+  // We can't toggle a cross-origin stream's audio directly, so "Sound" opens
+  // fullscreen (where the player's speaker sits above the ad layer) and nudges
+  // the viewer to tap it.
+  const unmuteHelp = () => {
+    goFullscreen();
+    toast("🔊 Now tap the speaker icon inside the player to turn sound on", { duration: 6000 });
+  };
 
   return (
     <div className="space-y-3">
@@ -236,8 +244,16 @@ function FeedPlayer({
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                 allowFullScreen
               />
-              {/* Our own always-clickable fullscreen button — the player's own ad
-                  layer can swallow taps, but this never does. */}
+              {/* Our own always-clickable buttons — the player's own ad layer can
+                  swallow taps, but these never do. Left = Sound (opens fullscreen
+                  where the speaker is reachable), right = Fullscreen. */}
+              <button
+                onClick={unmuteHelp}
+                title="Sound — opens fullscreen, then tap the player's speaker to unmute"
+                className="absolute left-2.5 top-2.5 z-40 inline-flex items-center gap-1 rounded-lg bg-black/60 px-2.5 py-1.5 text-xs font-bold text-white backdrop-blur transition hover:bg-black/80"
+              >
+                <Volume2 className="size-3.5" /> Sound
+              </button>
               <button
                 onClick={goFullscreen}
                 title="Fullscreen — easiest way to reach the sound & controls"
