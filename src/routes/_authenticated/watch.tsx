@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPTFull } from "@/lib/time";
 import { feedsForLiveMatch, parseStreams } from "@/lib/streams";
 import { expandFeeds, type Server } from "@/lib/hely-streams";
-import { Tv, Trophy, Maximize2, Volume2 } from "lucide-react";
+import { Tv, Trophy, Maximize2, Volume2, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 
 // Start the stream 30 min before kickoff — the broadcast's pre-match show
@@ -33,6 +33,8 @@ type WatchMatch = {
 };
 
 function WatchPage() {
+  const { user } = Route.useRouteContext();
+
   const { data: stream } = useQuery({
     queryKey: ["live-stream"],
     refetchInterval: 30_000, // pick up the admin's changes without a manual reload
@@ -126,50 +128,58 @@ function WatchPage() {
         </p>
       </header>
 
-      {onAirMatches.length > 0 ? (
-        <div className="space-y-4">
-          {onAirMatches.length > 1 && (
-            <p className="rounded-2xl border border-border bg-surface px-4 py-2.5 text-xs text-muted-foreground">
-              🔊 All {onAirMatches.length} games play at once. To avoid clashing audio, mute the
-              ones you&apos;re not listening to from each player&apos;s controls — or fullscreen the
-              one you want to focus on.
-            </p>
-          )}
-          <div className={onAirMatches.length === 1 ? "" : "grid grid-cols-1 gap-5 lg:grid-cols-2"}>
-            {onAirMatches.map((m) => (
-              <MatchPlayer key={m.id} match={m} streamUrl={url} title={title} />
-            ))}
-          </div>
-        </div>
-      ) : defaultFeeds.length > 0 ? (
-        <div className="space-y-3">
-          <FeedPlayer
-            rawFeeds={defaultFeeds}
-            title={title}
-            header={
-              <div className="flex items-center gap-2 text-sm font-bold">
-                <span className="rounded-full bg-magenta/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-magenta">
-                  ● Live coverage
-                </span>
-                <span className="text-muted-foreground">
-                  Live football — whatever game / pre &amp; post-match is on
-                </span>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-5">
+          {onAirMatches.length > 0 ? (
+            <div className="space-y-4">
+              {onAirMatches.length > 1 && (
+                <p className="rounded-2xl border border-border bg-surface px-4 py-2.5 text-xs text-muted-foreground">
+                  🔊 All {onAirMatches.length} games play at once. To avoid clashing audio, mute the
+                  ones you&apos;re not listening to from each player&apos;s controls — or fullscreen
+                  the one you want to focus on.
+                </p>
+              )}
+              <div
+                className={onAirMatches.length === 1 ? "" : "grid grid-cols-1 gap-5 lg:grid-cols-2"}
+              >
+                {onAirMatches.map((m) => (
+                  <MatchPlayer key={m.id} match={m} streamUrl={url} title={title} />
+                ))}
               </div>
-            }
-          />
-          {next && (
-            <p className="text-xs text-muted-foreground">
-              Next match: {next.team_a?.flag_emoji} {next.team_a?.name}{" "}
-              <span className="text-muted-foreground">vs</span> {next.team_b?.name}{" "}
-              {next.team_b?.flag_emoji} · {formatNPTFull(next.kickoff_utc)}
-            </p>
+            </div>
+          ) : defaultFeeds.length > 0 ? (
+            <div className="space-y-3">
+              <FeedPlayer
+                rawFeeds={defaultFeeds}
+                title={title}
+                header={
+                  <div className="flex items-center gap-2 text-sm font-bold">
+                    <span className="rounded-full bg-magenta/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-magenta">
+                      ● Live coverage
+                    </span>
+                    <span className="text-muted-foreground">
+                      Live football — whatever game / pre &amp; post-match is on
+                    </span>
+                  </div>
+                }
+              />
+              {next && (
+                <p className="text-xs text-muted-foreground">
+                  Next match: {next.team_a?.flag_emoji} {next.team_a?.name}{" "}
+                  <span className="text-muted-foreground">vs</span> {next.team_b?.name}{" "}
+                  {next.team_b?.flag_emoji} · {formatNPTFull(next.kickoff_utc)}
+                </p>
+              )}
+            </div>
+          ) : next ? (
+            <CountdownCard match={next} />
+          ) : (
+            <Placeholder text="No upcoming matches. Check back when the next fixture is scheduled." />
           )}
         </div>
-      ) : next ? (
-        <CountdownCard match={next} />
-      ) : (
-        <Placeholder text="No upcoming matches. Check back when the next fixture is scheduled." />
-      )}
+
+        <ChatPanel user={user} />
+      </div>
 
       <p className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
         Focus World Cup Pool is a free, non-commercial game for pool members only. Live streams are
@@ -432,5 +442,174 @@ function Countdown({ target }: { target: number }) {
         </div>
       ))}
     </div>
+  );
+}
+
+type ChatUser = {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown> | null;
+};
+type ChatMsg = {
+  id: string;
+  user_id: string;
+  display_name: string | null;
+  body: string;
+  created_at: string;
+};
+
+/** Live team chat beside the player — every signed-in member can post, and each
+ *  message is labelled with the sender's name. Polls every few seconds. */
+function ChatPanel({ user }: { user: ChatUser }) {
+  const qc = useQueryClient();
+  const scroller = useRef<HTMLDivElement>(null);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  // Names come from leaderboard_entries (readable by every member).
+  const membersQ = useQuery({
+    queryKey: ["chat-members"],
+    staleTime: 300_000,
+    queryFn: async () => {
+      const { data } = await supabase.from("leaderboard_entries").select("user_id, display_name");
+      return (data ?? []) as { user_id: string; display_name: string | null }[];
+    },
+  });
+  const nameById = new Map<string, string>(
+    (membersQ.data ?? []).map((m) => [m.user_id, m.display_name ?? "A member"]),
+  );
+  const myName =
+    nameById.get(user.id) ??
+    (typeof user.user_metadata?.name === "string" ? (user.user_metadata!.name as string) : null) ??
+    (typeof user.user_metadata?.full_name === "string"
+      ? (user.user_metadata!.full_name as string)
+      : null) ??
+    (user.email ? user.email.split("@")[0] : "You");
+
+  const messagesQ = useQuery({
+    queryKey: ["chat-messages"],
+    refetchInterval: 4000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("chat_messages")
+        .select("id, user_id, display_name, body, created_at")
+        .order("created_at", { ascending: true })
+        .limit(200);
+      if (error) throw error;
+      return (data ?? []) as ChatMsg[];
+    },
+  });
+  const errMsg = messagesQ.error ? String((messagesQ.error as any).message ?? "") : "";
+  const notSetUp =
+    messagesQ.isError && /chat_messages|schema cache|does not exist|relation/i.test(errMsg);
+  const messages = messagesQ.data ?? [];
+
+  // Keep the view pinned to the latest message.
+  useEffect(() => {
+    const el = scroller.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages.length]);
+
+  async function send() {
+    const body = text.trim();
+    if (!body || busy) return;
+    setBusy(true);
+    const { error } = await (supabase as any)
+      .from("chat_messages")
+      .insert({ user_id: user.id, display_name: myName, body: body.slice(0, 500) });
+    setBusy(false);
+    if (error) {
+      toast.error(
+        /chat_messages|schema cache|relation|does not exist/i.test(error.message)
+          ? "Chat isn't set up yet."
+          : error.message,
+      );
+      return;
+    }
+    setText("");
+    qc.invalidateQueries({ queryKey: ["chat-messages"] });
+  }
+
+  const timeOf = (iso: string) =>
+    new Date(iso).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "Asia/Kathmandu",
+    });
+
+  return (
+    <aside className="lg:sticky lg:top-[72px] lg:self-start">
+      <div className="flex h-[440px] flex-col rounded-3xl border border-border bg-surface shadow-card lg:h-[calc(100vh-88px)]">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+          <MessageCircle className="size-5 text-primary" />
+          <h2 className="font-display text-lg font-bold">Team Chat</h2>
+          <span className="ml-auto truncate text-[11px] text-muted-foreground">
+            You&apos;re <span className="font-semibold text-foreground">{myName}</span>
+          </span>
+        </div>
+
+        <div ref={scroller} className="flex-1 space-y-2.5 overflow-y-auto px-3 py-3">
+          {notSetUp ? (
+            <div className="rounded-xl border border-amber-400/40 bg-amber-400/5 p-3 text-xs">
+              <p className="font-bold text-foreground">⚙️ Chat needs a quick one-time setup</p>
+              <p className="mt-1 text-muted-foreground">
+                A small database table isn&apos;t created yet. Once it&apos;s added, chat works here
+                instantly — no reload needed.
+              </p>
+            </div>
+          ) : messagesQ.isLoading ? (
+            <p className="pt-4 text-center text-xs text-muted-foreground">Loading chat…</p>
+          ) : messages.length === 0 ? (
+            <p className="pt-6 text-center text-xs text-muted-foreground">
+              No messages yet — say hi to your team 👋
+            </p>
+          ) : (
+            messages.map((m) => {
+              const mine = m.user_id === user.id;
+              const who = mine ? "You" : (nameById.get(m.user_id) ?? m.display_name ?? "A member");
+              return (
+                <div key={m.id} className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
+                  <span className="px-1 text-[10px] font-semibold text-muted-foreground">
+                    {who} · {timeOf(m.created_at)}
+                  </span>
+                  <div
+                    className={`mt-0.5 max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3 py-1.5 text-sm ${
+                      mine ? "bg-primary text-primary-foreground" : "bg-background text-foreground"
+                    }`}
+                  >
+                    {m.body}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            send();
+          }}
+          className="flex items-center gap-2 border-t border-border p-2.5"
+        >
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            maxLength={500}
+            disabled={notSetUp}
+            placeholder={notSetUp ? "Chat setup needed…" : "Message your team…"}
+            className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={notSetUp || busy || !text.trim()}
+            className="inline-flex shrink-0 items-center justify-center rounded-xl bg-pitch px-3 py-2 text-white transition hover:opacity-90 disabled:opacity-50"
+            title="Send"
+          >
+            <Send className="size-4" />
+          </button>
+        </form>
+      </div>
+    </aside>
   );
 }
