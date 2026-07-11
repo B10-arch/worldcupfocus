@@ -180,7 +180,7 @@ function FriendlyBetsPage() {
       const { data, error } = await (supabase as any)
         .from("friendly_bets")
         .select("*, team:teams!friendly_bets_proposer_team_id_fkey(id,name,flag_emoji,code)")
-        .order("created_at");
+        .order("created_at", { ascending: false }); // newest offers on top
       if (error) throw error;
       return (data ?? []) as Bet[];
     },
