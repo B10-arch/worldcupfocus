@@ -26,9 +26,21 @@ type Match = {
   id: string;
   kickoff_utc: string;
   status: string;
+  stage: string;
   winner_team_id: string | null;
   team_a: Team | null;
   team_b: Team | null;
+};
+
+// Rounds shown as separate sections (most advanced first).
+const STAGE_ORDER = ["final", "third", "sf", "qf", "r16", "r32"] as const;
+const STAGE_LABEL: Record<string, string> = {
+  final: "🏆 Final",
+  third: "🥉 Third-Place Play-off",
+  sf: "Semi-Finals",
+  qf: "Quarter-Finals",
+  r16: "Round of 16",
+  r32: "Round of 32",
 };
 type Bet = {
   id: string;
@@ -163,7 +175,7 @@ function FriendlyBetsPage() {
       const { data } = await supabase
         .from("matches")
         .select(
-          "id, kickoff_utc, status, winner_team_id, team_a:teams!matches_team_a_id_fkey(id,name,flag_emoji,code), team_b:teams!matches_team_b_id_fkey(id,name,flag_emoji,code)",
+          "id, kickoff_utc, status, stage, winner_team_id, team_a:teams!matches_team_a_id_fkey(id,name,flag_emoji,code), team_b:teams!matches_team_b_id_fkey(id,name,flag_emoji,code)",
         )
         .in("stage", ["r32", "r16", "qf", "sf"])
         .not("team_a_id", "is", null)
@@ -293,20 +305,38 @@ function FriendlyBetsPage() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {sortedMatches.map((m) => (
-          <GameCard
-            key={m.id}
-            match={m}
-            bets={betsByMatch.get(m.id) ?? []}
-            userId={user.id}
-            members={(membersQ.data ?? []).filter((mem) => mem.id !== user.id)}
-            nameById={nameById}
-            hidden={hidden}
-            onHide={hideBet}
-            disabled={notSetUp}
-          />
-        ))}
+      <div className="space-y-8">
+        {STAGE_ORDER.filter((stage) => sortedMatches.some((m) => m.stage === stage)).map(
+          (stage) => {
+            const games = sortedMatches.filter((m) => m.stage === stage);
+            return (
+              <section key={stage} className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <h2 className="shrink-0 font-display text-xl font-bold">{STAGE_LABEL[stage]}</h2>
+                  <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-bold text-muted-foreground">
+                    {games.length} {games.length === 1 ? "game" : "games"}
+                  </span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {games.map((m) => (
+                    <GameCard
+                      key={m.id}
+                      match={m}
+                      bets={betsByMatch.get(m.id) ?? []}
+                      userId={user.id}
+                      members={(membersQ.data ?? []).filter((mem) => mem.id !== user.id)}
+                      nameById={nameById}
+                      hidden={hidden}
+                      onHide={hideBet}
+                      disabled={notSetUp}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          },
+        )}
       </div>
 
       {showSettle && (
