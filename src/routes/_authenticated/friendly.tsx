@@ -51,31 +51,27 @@ type Bet = {
   target_id: string | null;
   stake: string;
   status: string;
+  settle_requested_by: string | null;
+  settled_at: string | null;
   team: Team | null;
 };
 type Member = { id: string; display_name: string | null };
 type FormValues = { teamId: string; stake: string; targetId: string };
 
-type TransferGame = { label: string; amount: number; offset: boolean };
-type Transfer = {
-  fromId: string;
-  toId: string;
-  amount: number;
-  games: TransferGame[];
-  betIds: string[];
-};
-type Activity = {
+// One settleable bet (per game). Each locked bet on a finished match becomes an
+// item: the loser (debtor) owes the winner (creditor) the stake.
+type SettleItem = {
+  betId: string;
   debtorId: string;
   creditorId: string;
+  amount: number | null; // rupees, or null for a non-cash dare
   stake: string;
-  label: string;
-  betId: string;
+  label: string; // the game
+  settledAt: string | null;
+  requestedBy: string | null; // who marked it settled (awaiting the other's OK)
 };
 type Settlement = {
-  outstanding: Transfer[]; // cash still to pay
-  settledTransfers: Transfer[]; // cash you've ticked off as paid
-  activities: Activity[]; // dares still to do
-  settledActivities: Activity[]; // dares ticked off as done
+  items: SettleItem[];
   pendingCount: number; // locked bets whose game hasn't finished yet
 };
 
@@ -101,21 +97,13 @@ function parseMoney(raw: string): number | null {
 const fmtMoney = (n: number) => "Rs " + n.toLocaleString("en-IN");
 
 /**
- * Tally every locked bet on a finished game into a net "who pays whom" list.
- * Proposer backs proposer_team_id; the acceptor implicitly backs the other
- * team; the match winner decides who owes whom the stake. Cash stakes net out
- * per pair; non-cash dares are listed separately.
+ * Turn every locked bet on a finished game into a per-game settlement item.
+ * Proposer backs proposer_team_id; the acceptor backs the other team; the match
+ * winner decides who owes whom the stake. No cross-game netting — each bet is
+ * settled on its own, and only by the two players involved.
  */
-function computeSettlement(
-  bets: Bet[],
-  matchById: Map<string, Match>,
-  settledIds: Set<string>,
-): Settlement {
-  type Line = { fromId: string; toId: string; amount: number; label: string; id: string };
-  const cashOpen: Line[] = [];
-  const cashDone: Line[] = [];
-  const activities: Activity[] = [];
-  const settledActivities: Activity[] = [];
+function computeSettlement(bets: Bet[], matchById: Map<string, Match>): Settlement {
+  const items: SettleItem[] = [];
   let pendingCount = 0;
 
   for (const bet of bets) {
@@ -143,66 +131,21 @@ function computeSettlement(
     } else {
       continue; // winner isn't either bet team — skip defensively
     }
-    const done = settledIds.has(bet.id);
-    const label = `${m.team_a?.name ?? "?"} v ${m.team_b?.name ?? "?"}`;
-    const amt = parseMoney(bet.stake);
-    if (amt && amt > 0) {
-      (done ? cashDone : cashOpen).push({
-        fromId: debtor,
-        toId: creditor,
-        amount: amt,
-        label,
-        id: bet.id,
-      });
-    } else {
-      (done ? settledActivities : activities).push({
-        debtorId: debtor,
-        creditorId: creditor,
-        stake: bet.stake,
-        label,
-        betId: bet.id,
-      });
-    }
+    items.push({
+      betId: bet.id,
+      debtorId: debtor,
+      creditorId: creditor,
+      amount: parseMoney(bet.stake),
+      stake: bet.stake,
+      label: `${m.team_a?.name ?? "?"} v ${m.team_b?.name ?? "?"}`,
+      settledAt: bet.settled_at ?? null,
+      requestedBy: bet.settle_requested_by ?? null,
+    });
   }
 
-  // Net a set of cash lines per unordered pair, keeping the per-game breakdown
-  // (a game marked "offset" ran against the net) and the bet ids behind it.
-  const netPairs = (lines: Line[]): Transfer[] => {
-    const byPair = new Map<string, Line[]>();
-    for (const l of lines) {
-      const pk = [l.fromId, l.toId].sort().join("|");
-      const arr = byPair.get(pk) ?? [];
-      arr.push(l);
-      byPair.set(pk, arr);
-    }
-    const out: Transfer[] = [];
-    for (const [pk, arr] of byPair) {
-      const [x, y] = pk.split("|");
-      let xToY = 0;
-      let yToX = 0;
-      for (const l of arr) {
-        if (l.fromId === x) xToY += l.amount;
-        else yToX += l.amount;
-      }
-      const net = xToY - yToX;
-      if (net === 0) continue; // fully offset — they're square
-      const fromId = net > 0 ? x : y;
-      const toId = net > 0 ? y : x;
-      const games: TransferGame[] = arr
-        .map((l) => ({ label: l.label, amount: l.amount, offset: l.fromId !== fromId }))
-        .sort((a, b) => Number(a.offset) - Number(b.offset) || b.amount - a.amount);
-      out.push({ fromId, toId, amount: Math.abs(net), games, betIds: arr.map((l) => l.id) });
-    }
-    return out.sort((a, b) => b.amount - a.amount);
-  };
-
-  return {
-    outstanding: netPairs(cashOpen),
-    settledTransfers: netPairs(cashDone),
-    activities,
-    settledActivities,
-    pendingCount,
-  };
+  // Unsettled first, then settled.
+  items.sort((a, b) => Number(!!a.settledAt) - Number(!!b.settledAt));
+  return { items, pendingCount };
 }
 
 function FriendlyBetsPage() {
@@ -257,30 +200,13 @@ function FriendlyBetsPage() {
     (membersQ.data ?? []).map((m) => [m.id, m.display_name ?? "A member"]),
   );
 
-  // "Settle up" — net out every locked bet on a finished game into who-pays-whom.
-  // Which settlements you've ticked off as paid are remembered on this device.
+  // "Settle up" — per-game settlement between the two players in each bet.
   const [showSettle, setShowSettle] = useState(false);
-  const [settledIds, setSettledIds] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-    try {
-      return new Set<string>(JSON.parse(localStorage.getItem("fb-settled") ?? "[]"));
-    } catch {
-      return new Set();
-    }
-  });
-  const toggleSettled = (betIds: string[], mark: boolean) =>
-    setSettledIds((prev) => {
-      const next = new Set(prev);
-      for (const id of betIds) mark ? next.add(id) : next.delete(id);
-      try {
-        localStorage.setItem("fb-settled", JSON.stringify([...next]));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
   const matchById = new Map<string, Match>((matchesQ.data ?? []).map((m) => [m.id, m]));
-  const settlement = computeSettlement(betsQ.data ?? [], matchById, settledIds);
+  const settlement = computeSettlement(betsQ.data ?? [], matchById);
+  const myUnsettled = settlement.items.filter(
+    (i) => !i.settledAt && (i.debtorId === user.id || i.creditorId === user.id),
+  ).length;
 
   // Open offers you've passed on are hidden from your own list (kept locally —
   // the offer stays live for everyone else, since it's open to the whole pool).
@@ -347,10 +273,8 @@ function FriendlyBetsPage() {
           className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-card transition hover:opacity-90"
         >
           <Wallet className="size-4" /> Settle Up
-          {settlement.outstanding.length > 0 && (
-            <span className="rounded-full bg-black/20 px-1.5 text-xs">
-              {settlement.outstanding.length}
-            </span>
+          {myUnsettled > 0 && (
+            <span className="rounded-full bg-black/20 px-1.5 text-xs">{myUnsettled}</span>
           )}
         </button>
       </header>
@@ -404,7 +328,6 @@ function FriendlyBetsPage() {
           settlement={settlement}
           nameById={nameById}
           userId={user.id}
-          onToggleSettled={toggleSettled}
           onClose={() => setShowSettle(false)}
         />
       )}
@@ -412,125 +335,32 @@ function FriendlyBetsPage() {
   );
 }
 
-/** Popup summarising who owes whom, split into still-owed vs already-settled. */
+/** Popup listing each bet's settlement, per game. Only the two players in a bet
+ *  can settle it, and it takes both — one marks it, the other confirms. */
 function SettleModal({
   settlement,
   nameById,
   userId,
-  onToggleSettled,
   onClose,
 }: {
   settlement: Settlement;
   nameById: Map<string, string>;
   userId: string;
-  onToggleSettled: (betIds: string[], mark: boolean) => void;
   onClose: () => void;
 }) {
-  const { outstanding, settledTransfers, activities, settledActivities, pendingCount } = settlement;
+  const { items, pendingCount } = settlement;
   const name = (id: string) => nameById.get(id) ?? "A member";
-  const label = (id: string) => (id === userId ? "You" : name(id));
 
-  // Your remaining balance is computed from OUTSTANDING (unsettled) transfers only.
-  const youGet = outstanding.filter((t) => t.toId === userId);
-  const youPay = outstanding.filter((t) => t.fromId === userId);
-  const net = youGet.reduce((s, t) => s + t.amount, 0) - youPay.reduce((s, t) => s + t.amount, 0);
-  const involved = youGet.length > 0 || youPay.length > 0;
+  const open = items.filter((i) => !i.settledAt);
+  const settled = items.filter((i) => i.settledAt);
 
-  const remainingCount = outstanding.length + activities.length;
-  const doneCount = settledTransfers.length + settledActivities.length;
-  const nothing = remainingCount === 0 && doneCount === 0;
-
-  const renderTransfer = (t: Transfer, done: boolean) => {
-    const mine = t.fromId === userId || t.toId === userId;
-    return (
-      <div
-        key={`${t.fromId}-${t.toId}`}
-        className={`rounded-xl border px-3 py-2 text-sm ${
-          done
-            ? "border-border bg-background opacity-70"
-            : mine
-              ? "border-primary/40 bg-primary/5"
-              : "border-border bg-background"
-        }`}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="flex min-w-0 items-center gap-1.5">
-            <span
-              className={`truncate font-bold ${!done && t.fromId === userId ? "text-magenta" : ""}`}
-            >
-              {label(t.fromId)}
-            </span>
-            <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-            <span
-              className={`truncate font-bold ${!done && t.toId === userId ? "text-pitch" : ""}`}
-            >
-              {label(t.toId)}
-            </span>
-          </span>
-          <span
-            className={`shrink-0 font-bold ${done ? "text-muted-foreground line-through" : ""}`}
-          >
-            {fmtMoney(t.amount)}
-          </span>
-        </div>
-        <ul className="mt-1.5 space-y-0.5 border-t border-border/60 pt-1.5 text-[11px] text-muted-foreground">
-          {t.games.map((g, i) => (
-            <li key={i} className="flex items-center justify-between gap-2">
-              <span className="min-w-0 truncate">
-                {g.offset && "↩ "}
-                {g.label}
-              </span>
-              <span className="shrink-0">
-                {g.offset ? "−" : ""}
-                {fmtMoney(g.amount)}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <button
-          onClick={() => onToggleSettled(t.betIds, !done)}
-          className={`mt-2 w-full rounded-lg px-2 py-1 text-[11px] font-bold transition ${
-            done
-              ? "border border-border text-muted-foreground hover:bg-secondary"
-              : "bg-pitch text-white hover:opacity-90"
-          }`}
-        >
-          {done ? "↺ Mark as unpaid" : "✓ Mark as settled"}
-        </button>
-      </div>
-    );
-  };
-
-  const renderActivity = (act: Activity, done: boolean) => (
-    <div
-      key={act.betId}
-      className={`rounded-xl border border-border bg-background px-3 py-2 text-sm ${
-        done ? "opacity-70" : ""
-      }`}
-    >
-      <p className={done ? "line-through" : ""}>
-        <span className={`font-bold ${!done && act.debtorId === userId ? "text-magenta" : ""}`}>
-          {label(act.debtorId)}
-        </span>{" "}
-        owes{" "}
-        <span className={`font-bold ${!done && act.creditorId === userId ? "text-pitch" : ""}`}>
-          {label(act.creditorId)}
-        </span>
-        : <span className="font-semibold">{act.stake}</span>
-      </p>
-      <p className="text-[11px] text-muted-foreground">{act.label}</p>
-      <button
-        onClick={() => onToggleSettled([act.betId], !done)}
-        className={`mt-2 w-full rounded-lg px-2 py-1 text-[11px] font-bold transition ${
-          done
-            ? "border border-border text-muted-foreground hover:bg-secondary"
-            : "bg-pitch text-white hover:opacity-90"
-        }`}
-      >
-        {done ? "↺ Mark as not done" : "✓ Mark as done"}
-      </button>
-    </div>
+  // Your remaining balance from unsettled cash bets you're part of.
+  const mineOpen = open.filter((i) => i.debtorId === userId || i.creditorId === userId);
+  const net = mineOpen.reduce(
+    (s, i) => (i.amount == null ? s : s + (i.creditorId === userId ? i.amount : -i.amount)),
+    0,
   );
+  const nothing = items.length === 0;
 
   return (
     <div
@@ -547,7 +377,7 @@ function SettleModal({
               <Wallet className="size-6 text-primary" /> Settle Up
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {remainingCount} to settle · {doneCount} done
+              {open.length} to settle · {settled.length} done
               {pendingCount > 0 && ` · ${pendingCount} awaiting results`}
             </p>
           </div>
@@ -562,8 +392,8 @@ function SettleModal({
         {nothing ? (
           <div className="mt-6 rounded-xl border border-dashed border-border bg-background p-6 text-center">
             <p className="text-sm text-muted-foreground">
-              No bets have settled yet. Once locked bets&apos; games finish, who-pays-whom shows up
-              here.
+              No bets have settled yet. Once locked bets&apos; games finish, they show up here to
+              settle.
             </p>
             {pendingCount > 0 && (
               <p className="mt-2 text-xs font-semibold text-foreground">
@@ -574,8 +404,7 @@ function SettleModal({
           </div>
         ) : (
           <div className="mt-4 space-y-5">
-            {/* Your remaining balance (outstanding only) */}
-            {involved && (
+            {mineOpen.length > 0 && (
               <div className="rounded-xl border border-primary/40 bg-primary/5 p-3">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                   Your remaining balance
@@ -589,72 +418,190 @@ function SettleModal({
                     ? `You still collect ${fmtMoney(net)}`
                     : net < 0
                       ? `You still owe ${fmtMoney(-net)}`
-                      : "You're all square 👍"}
+                      : "Cash all square 👍"}
                 </p>
-                <ul className="mt-2 space-y-1 text-sm">
-                  {youGet.map((t) => (
-                    <li key={`g-${t.fromId}`} className="flex items-center justify-between gap-2">
-                      <span className="text-muted-foreground">
-                        Collect from{" "}
-                        <span className="font-semibold text-foreground">{name(t.fromId)}</span>
-                      </span>
-                      <span className="font-bold text-pitch">+{fmtMoney(t.amount)}</span>
-                    </li>
-                  ))}
-                  {youPay.map((t) => (
-                    <li key={`p-${t.toId}`} className="flex items-center justify-between gap-2">
-                      <span className="text-muted-foreground">
-                        Pay <span className="font-semibold text-foreground">{name(t.toId)}</span>
-                      </span>
-                      <span className="font-bold text-magenta">−{fmtMoney(t.amount)}</span>
-                    </li>
-                  ))}
-                </ul>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  Across {mineOpen.length} unsettled {mineOpen.length === 1 ? "bet" : "bets"} of
+                  yours (dares aren&apos;t counted as cash).
+                </p>
               </div>
             )}
 
-            {/* Still to pay (outstanding cash) */}
-            {outstanding.length > 0 && (
+            {open.length > 0 && (
               <div>
                 <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  <Coins className="size-3.5" /> Still to pay ({outstanding.length})
+                  <Coins className="size-3.5" /> To settle ({open.length})
                 </p>
                 <div className="space-y-1.5">
-                  {outstanding.map((t) => renderTransfer(t, false))}
+                  {open.map((i) => (
+                    <SettleItemRow key={i.betId} item={i} userId={userId} nameById={nameById} />
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Dares still to do */}
-            {activities.length > 0 && (
-              <div>
-                <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  🎲 Dares to settle ({activities.length})
-                </p>
-                <div className="space-y-1.5">{activities.map((a) => renderActivity(a, false))}</div>
-              </div>
-            )}
-
-            {/* Already settled */}
-            {doneCount > 0 && (
+            {settled.length > 0 && (
               <div>
                 <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-pitch">
-                  ✅ Settled ({doneCount})
+                  ✅ Settled ({settled.length})
                 </p>
                 <div className="space-y-1.5">
-                  {settledTransfers.map((t) => renderTransfer(t, true))}
-                  {settledActivities.map((a) => renderActivity(a, true))}
+                  {settled.map((i) => (
+                    <SettleItemRow key={i.betId} item={i} userId={userId} nameById={nameById} />
+                  ))}
                 </div>
               </div>
             )}
 
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              Tap <span className="font-semibold text-foreground">Mark as settled</span> once a debt
-              is paid — it moves to the Settled list and drops out of your remaining balance. This
-              checklist is saved on this device only (your own record); tell me if you want it
-              shared with everyone. Cash is netted per pair; a game marked ↩ ran the other way.
+              Each game is settled on its own. Only the two players in a bet can settle it — one
+              taps <span className="font-semibold text-foreground">Mark as settled</span>, then the
+              other <span className="font-semibold text-foreground">confirms</span>. Everyone can
+              see the status.
             </p>
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** One bet's settlement line + the two-party settle/confirm controls. */
+function SettleItemRow({
+  item,
+  userId,
+  nameById,
+}: {
+  item: SettleItem;
+  userId: string;
+  nameById: Map<string, string>;
+}) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const name = (id: string) => nameById.get(id) ?? "A member";
+  const label = (id: string) => (id === userId ? "You" : name(id));
+
+  const iAmParty = userId === item.debtorId || userId === item.creditorId;
+  const oppId = userId === item.debtorId ? item.creditorId : item.debtorId;
+  const settled = !!item.settledAt;
+  const reqBy = item.requestedBy;
+  const display = item.amount != null ? fmtMoney(item.amount) : item.stake;
+
+  async function call(fn: string, okMsg: string) {
+    setBusy(true);
+    const { error } = await (supabase as any).rpc(fn, { p_bet_id: item.betId });
+    setBusy(false);
+    if (error) {
+      toast.error(
+        /function|does not exist|schema cache/i.test(error.message)
+          ? "Settling needs the latest SQL update first."
+          : error.message,
+      );
+      return;
+    }
+    toast.success(okMsg);
+    qc.invalidateQueries({ queryKey: ["friendly-bets"] });
+  }
+
+  const btn = "rounded-lg px-2.5 py-1 text-[11px] font-bold transition disabled:opacity-50";
+
+  return (
+    <div
+      className={`rounded-xl border px-3 py-2 text-sm ${
+        settled
+          ? "border-border bg-background opacity-80"
+          : iAmParty
+            ? "border-primary/40 bg-primary/5"
+            : "border-border bg-background"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span
+            className={`truncate font-bold ${!settled && item.debtorId === userId ? "text-magenta" : ""}`}
+          >
+            {label(item.debtorId)}
+          </span>
+          <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+          <span
+            className={`truncate font-bold ${!settled && item.creditorId === userId ? "text-pitch" : ""}`}
+          >
+            {label(item.creditorId)}
+          </span>
+        </span>
+        <span
+          className={`shrink-0 font-bold ${settled ? "text-muted-foreground line-through" : ""}`}
+        >
+          {display}
+        </span>
+      </div>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">{item.label}</p>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {settled ? (
+          <>
+            <span className="text-[11px] font-bold text-pitch">✅ Settled</span>
+            {iAmParty && (
+              <button
+                disabled={busy}
+                onClick={() => call("unsettle_friendly_bet", "Reopened.")}
+                className={`${btn} border border-border text-muted-foreground hover:bg-secondary`}
+              >
+                ↺ Undo
+              </button>
+            )}
+          </>
+        ) : reqBy ? (
+          reqBy === userId ? (
+            <>
+              <span className="text-[11px] text-muted-foreground">
+                ⏳ Waiting for <b className="text-foreground">{name(oppId)}</b> to confirm
+              </span>
+              <button
+                disabled={busy}
+                onClick={() => call("unsettle_friendly_bet", "Cancelled.")}
+                className={`${btn} border border-border text-muted-foreground hover:bg-secondary`}
+              >
+                Cancel
+              </button>
+            </>
+          ) : iAmParty ? (
+            <>
+              <span className="text-[11px] text-muted-foreground">
+                <b className="text-foreground">{name(reqBy)}</b> marked this settled
+              </span>
+              <button
+                disabled={busy}
+                onClick={() => call("confirm_settle_friendly_bet", "Confirmed — settled. 🤝")}
+                className={`${btn} bg-pitch text-white hover:opacity-90`}
+              >
+                ✓ Confirm
+              </button>
+              <button
+                disabled={busy}
+                onClick={() => call("unsettle_friendly_bet", "Declined.")}
+                className={`${btn} border border-border text-muted-foreground hover:bg-secondary`}
+              >
+                Not yet
+              </button>
+            </>
+          ) : (
+            <span className="text-[11px] text-muted-foreground">
+              ⏳ Awaiting confirmation between {name(item.debtorId)} &amp; {name(item.creditorId)}
+            </span>
+          )
+        ) : iAmParty ? (
+          <button
+            disabled={busy}
+            onClick={() =>
+              call("request_settle_friendly_bet", "Marked — waiting on the other player.")
+            }
+            className={`${btn} bg-pitch text-white hover:opacity-90`}
+          >
+            ✓ Mark as settled
+          </button>
+        ) : (
+          <span className="text-[11px] text-muted-foreground">Not settled yet</span>
         )}
       </div>
     </div>
