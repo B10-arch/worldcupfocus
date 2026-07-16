@@ -27,6 +27,7 @@ type Match = {
   kickoff_utc: string;
   status: string;
   stage: string;
+  venue: string | null;
   winner_team_id: string | null;
   team_a: Team | null;
   team_b: Team | null;
@@ -158,9 +159,9 @@ function FriendlyBetsPage() {
       const { data } = await supabase
         .from("matches")
         .select(
-          "id, kickoff_utc, status, stage, winner_team_id, team_a:teams!matches_team_a_id_fkey(id,name,flag_emoji,code), team_b:teams!matches_team_b_id_fkey(id,name,flag_emoji,code)",
+          "id, kickoff_utc, status, stage, venue, winner_team_id, team_a:teams!matches_team_a_id_fkey(id,name,flag_emoji,code), team_b:teams!matches_team_b_id_fkey(id,name,flag_emoji,code)",
         )
-        .in("stage", ["r32", "r16", "qf", "sf"])
+        .in("stage", ["r32", "r16", "qf", "sf", "third", "final"])
         .not("team_a_id", "is", null)
         .not("team_b_id", "is", null)
         .order("kickoff_utc");
@@ -262,8 +263,8 @@ function FriendlyBetsPage() {
             <Handshake className="size-8 text-primary" /> Side Bets
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Offer a bet on any knockout game (Round of 32 through the Semi-Finals) — pick a team and
-            name your stake (money or a dare). Leave it open for anyone, or{" "}
+            Offer a bet on any knockout game (Round of 32 all the way to the Final) — pick a team
+            and name your stake (money or a dare). Leave it open for anyone, or{" "}
             <span className="font-semibold text-foreground">challenge a specific member</span> (they
             can accept or reject). Edit or cancel your own offers anytime before kickoff.
           </p>
@@ -314,6 +315,7 @@ function FriendlyBetsPage() {
                       hidden={hidden}
                       onHide={hideBet}
                       disabled={notSetUp}
+                      featured={stage === "final"}
                     />
                   ))}
                 </div>
@@ -775,6 +777,7 @@ function GameCard({
   hidden,
   onHide,
   disabled,
+  featured = false,
 }: {
   match: Match;
   bets: Bet[];
@@ -784,6 +787,8 @@ function GameCard({
   hidden: Set<string>;
   onHide: (id: string) => void;
   disabled: boolean;
+  /** The Final gets a full-width showpiece header. */
+  featured?: boolean;
 }) {
   const qc = useQueryClient();
   const a = match.team_a;
@@ -819,6 +824,107 @@ function GameCard({
     return true;
   }
 
+  const winnerName =
+    finished && match.winner_team_id
+      ? match.winner_team_id === a?.id
+        ? `${a?.flag_emoji ?? ""} ${a?.name ?? ""}`.trim()
+        : match.winner_team_id === b?.id
+          ? `${b?.flag_emoji ?? ""} ${b?.name ?? ""}`.trim()
+          : null
+      : null;
+
+  // The bets list + offer form — identical in both the normal and Final layouts.
+  const cardBody = (
+    <>
+      {visible.map((bet) => (
+        <BetRow
+          key={bet.id}
+          bet={bet}
+          match={match}
+          userId={userId}
+          members={members}
+          nameById={nameById}
+          started={started}
+          finished={finished}
+          onChange={refresh}
+          onHide={onHide}
+        />
+      ))}
+
+      {!myBet && !started && !disabled && (
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            {bets.length ? "Add your own bet" : "Be the first — offer a bet"}
+          </p>
+          <BetForm teamA={a} teamB={b} members={members} onSubmit={offer} />
+        </div>
+      )}
+
+      {!bets.length && started && (
+        <p className="text-sm text-muted-foreground">Betting closed — this match has started.</p>
+      )}
+    </>
+  );
+
+  if (featured) {
+    // Showpiece treatment for the Final: full-width, gold-edged, with a dark
+    // stadium-style hero above the normal betting controls.
+    return (
+      <div className="overflow-hidden rounded-3xl border-2 border-primary/50 bg-surface shadow-glow md:col-span-2">
+        <div
+          className="relative px-5 py-7 text-center text-white"
+          style={{ backgroundImage: "var(--gradient-night)" }}
+        >
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.25em] text-primary">
+            <Trophy className="size-3.5" /> The Final
+          </span>
+          <p className="mt-2 font-display text-xs font-bold uppercase tracking-[0.3em] text-slate-400">
+            FIFA World Cup 2026
+          </p>
+
+          <div className="mt-5 flex items-center justify-center gap-3 sm:gap-6">
+            <div className="flex-1 text-right">
+              <div className="text-4xl sm:text-5xl">{a?.flag_emoji ?? "🏳️"}</div>
+              <div className="mt-1.5 font-display text-base font-bold sm:text-xl">
+                {a?.name ?? "TBD"}
+              </div>
+            </div>
+            <div className="shrink-0 font-display text-lg font-bold text-primary sm:text-2xl">
+              VS
+            </div>
+            <div className="flex-1 text-left">
+              <div className="text-4xl sm:text-5xl">{b?.flag_emoji ?? "🏳️"}</div>
+              <div className="mt-1.5 font-display text-base font-bold sm:text-xl">
+                {b?.name ?? "TBD"}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-full bg-white/5 px-4 py-1.5 text-[11px] text-slate-300">
+            <span className="font-bold text-white">
+              {finished
+                ? "Full time"
+                : `${formatNPTDate(match.kickoff_utc)} · ${formatNPT(match.kickoff_utc)} NPT`}
+            </span>
+            {match.venue && (
+              <>
+                <span className="text-slate-500">•</span>
+                <span>{match.venue}</span>
+              </>
+            )}
+          </div>
+          {finished && winnerName && (
+            <p className="mt-3 flex items-center justify-center gap-1.5 font-display text-sm font-bold text-amber-pop">
+              <Trophy className="size-4" /> {winnerName} lift the trophy
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-3 p-4 sm:p-5">{cardBody}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-border bg-surface p-4 shadow-card">
       <div className="flex items-center justify-between gap-2">
@@ -836,35 +942,7 @@ function GameCard({
         </span>
       </div>
 
-      <div className="mt-3 space-y-3 border-t border-border pt-3">
-        {visible.map((bet) => (
-          <BetRow
-            key={bet.id}
-            bet={bet}
-            match={match}
-            userId={userId}
-            members={members}
-            nameById={nameById}
-            started={started}
-            finished={finished}
-            onChange={refresh}
-            onHide={onHide}
-          />
-        ))}
-
-        {!myBet && !started && !disabled && (
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              {bets.length ? "Add your own bet" : "Be the first — offer a bet"}
-            </p>
-            <BetForm teamA={a} teamB={b} members={members} onSubmit={offer} />
-          </div>
-        )}
-
-        {!bets.length && started && (
-          <p className="text-sm text-muted-foreground">Betting closed — this match has started.</p>
-        )}
-      </div>
+      <div className="mt-3 space-y-3 border-t border-border pt-3">{cardBody}</div>
     </div>
   );
 }
