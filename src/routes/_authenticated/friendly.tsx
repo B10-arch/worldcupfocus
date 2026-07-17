@@ -814,7 +814,9 @@ function GameCard({
     if (v.targetId) payload.target_id = v.targetId;
     const { error } = await (supabase as any).from("friendly_bets").insert(payload);
     if (error) {
-      if (/target_id|column/i.test(error.message))
+      if (/duplicate key|unique constraint/i.test(error.message))
+        toast.error("More than one bet per game needs the latest SQL update first.");
+      else if (/target_id|column/i.test(error.message))
         toast.error("Directed bets need the latest SQL update first.");
       else toast.error(error.message);
       return false;
@@ -851,10 +853,14 @@ function GameCard({
         />
       ))}
 
-      {!myBet && !started && !disabled && (
+      {!started && !disabled && (
         <div>
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            {bets.length ? "Add your own bet" : "Be the first — offer a bet"}
+            {myBet
+              ? "Offer another bet"
+              : bets.length
+                ? "Add your own bet"
+                : "Be the first — offer a bet"}
           </p>
           <BetForm teamA={a} teamB={b} members={members} onSubmit={offer} />
         </div>
