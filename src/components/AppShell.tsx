@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { X } from "lucide-react";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -37,6 +38,20 @@ export function AppShell({
   const router = useRouter();
   const queryClient = useQueryClient();
 
+  // App-wide "EPL is coming" teaser — dismissible, remembered per device.
+  const [showEpl, setShowEpl] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("epl-teaser-hidden") !== "1";
+  });
+  const dismissEpl = () => {
+    setShowEpl(false);
+    try {
+      localStorage.setItem("epl-teaser-hidden", "1");
+    } catch {
+      /* ignore */
+    }
+  };
+
   async function handleSignOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
@@ -53,6 +68,29 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-background">
+      {showEpl && (
+        <div
+          className="relative text-white"
+          style={{ background: "linear-gradient(90deg,#37003c 0%,#5b1a8a 55%,#e90052 100%)" }}
+        >
+          <div className="mx-auto flex max-w-7xl items-center gap-3 px-6 py-2 pr-10 text-sm">
+            <span className="hidden shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest sm:inline">
+              ⚽ Coming soon
+            </span>
+            <p className="min-w-0 flex-1 truncate font-medium sm:text-center">
+              <span className="font-bold">English Premier League</span> is coming back here — get
+              ready to pick your clubs. 🏴󠁧󠁢󠁥󠁮󠁧󠁿
+            </p>
+          </div>
+          <button
+            onClick={dismissEpl}
+            aria-label="Dismiss announcement"
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-white/80 transition hover:bg-white/15 hover:text-white"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
       <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
           <Link to="/dashboard" className="flex items-center gap-3">

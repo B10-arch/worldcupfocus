@@ -140,6 +140,26 @@ function Dashboard() {
 
   return (
     <div className="space-y-12">
+      {/* What's next: English Premier League teaser. */}
+      <div
+        className="relative overflow-hidden rounded-3xl border-2 border-[#e90052]/40 p-8 text-center text-white shadow-glow"
+        style={{ background: "linear-gradient(135deg,#37003c 0%,#3d195b 45%,#7b1fa2 100%)" }}
+      >
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#e90052] px-4 py-1 text-[11px] font-bold uppercase tracking-[0.25em] text-white">
+          ⚽ Coming soon
+        </span>
+        <h2 className="mt-4 font-display text-4xl font-bold leading-tight md:text-5xl">
+          English Premier League
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl text-sm text-slate-200">
+          The Focus Pool is coming back for the Premier League 🏴󠁧󠁢󠁥󠁮󠁗󠁿 — same game you love, a
+          brand-new competition. Get ready to back your clubs and go again.
+        </p>
+        <span className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-4 py-1.5 text-xs font-bold">
+          Picks open soon · stay tuned
+        </span>
+      </div>
+
       {champion && (
         <div
           className="relative overflow-hidden rounded-3xl border-2 border-primary/50 p-8 text-center text-white shadow-glow"
