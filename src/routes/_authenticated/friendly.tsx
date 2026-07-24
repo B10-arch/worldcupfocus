@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/friendly")({
-  head: () => ({ meta: [{ title: "Side Bets · Focus World Cup Pool" }] }),
+  head: () => ({ meta: [{ title: "Side Bets · Focus Premier League Pool" }] }),
   component: FriendlyBetsPage,
 });
 
@@ -33,9 +33,10 @@ type Match = {
   team_b: Team | null;
 };
 
-// Rounds shown as separate sections (most advanced first).
-const STAGE_ORDER = ["final", "third", "sf", "qf", "r16", "r32"] as const;
+// Rounds shown as separate sections (Premier League first, then WC history).
+const STAGE_ORDER = ["league", "final", "third", "sf", "qf", "r16", "r32"] as const;
 const STAGE_LABEL: Record<string, string> = {
+  league: "⚽ Premier League",
   final: "🏆 Final",
   third: "🥉 Third-Place Play-off",
   sf: "Semi-Finals",
@@ -161,7 +162,7 @@ function FriendlyBetsPage() {
         .select(
           "id, kickoff_utc, status, stage, venue, winner_team_id, team_a:teams!matches_team_a_id_fkey(id,name,flag_emoji,code), team_b:teams!matches_team_b_id_fkey(id,name,flag_emoji,code)",
         )
-        .in("stage", ["r32", "r16", "qf", "sf", "third", "final"])
+        .in("stage", ["league", "r32", "r16", "qf", "sf", "third", "final"])
         .not("team_a_id", "is", null)
         .not("team_b_id", "is", null)
         .order("kickoff_utc");
@@ -885,7 +886,7 @@ function GameCard({
             <Trophy className="size-3.5" /> The Final
           </span>
           <p className="mt-2 font-display text-xs font-bold uppercase tracking-[0.3em] text-slate-400">
-            FIFA World Cup 2026
+            Premier League 2026/27
           </p>
 
           <div className="mt-5 flex items-center justify-center gap-3 sm:gap-6">

@@ -10,11 +10,11 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
-      { title: "Create your account · Focus World Cup Pool" },
+      { title: "Create your account · Focus Premier League Pool" },
       {
         name: "description",
         content:
-          "Join the Focus World Cup 2026 friendly betting pool — back your team and split the glory.",
+          "Join the Focus Premier League 2026/27 friendly betting pool — back your team and split the glory.",
       },
     ],
   }),

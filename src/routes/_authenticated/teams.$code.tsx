@@ -5,7 +5,7 @@ import { formatNPT, formatNPTDate } from "@/lib/time";
 import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/teams/$code")({
-  head: ({ params }) => ({ meta: [{ title: `${params.code} · Focus World Cup Pool` }] }),
+  head: ({ params }) => ({ meta: [{ title: `${params.code} · Focus Premier League Pool` }] }),
   component: TeamDetail,
 });
 
@@ -72,8 +72,8 @@ function TeamDetail() {
             </p>
             <h1 className="font-display text-5xl font-bold">{team.name}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Manager: <strong className="text-foreground">{team.coach ?? "TBC"}</strong> · FIFA Rank #
-              {team.fifa_rank ?? "—"}
+              Manager: <strong className="text-foreground">{team.coach ?? "TBC"}</strong> · FIFA
+              Rank #{team.fifa_rank ?? "—"}
             </p>
           </div>
           {underdog && (
@@ -85,7 +85,7 @@ function TeamDetail() {
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <div className="rounded-2xl bg-muted p-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              World Cup history
+              Premier League history
             </p>
             <p className="mt-1 text-sm font-semibold">{team.wc_form ?? "TBC"}</p>
           </div>
@@ -94,7 +94,9 @@ function TeamDetail() {
               Active squad
             </p>
             <p className="mt-1 text-sm">
-              {squadList.length > 0 ? squadList.join(" · ") : "Squad list to be confirmed by federation."}
+              {squadList.length > 0
+                ? squadList.join(" · ")
+                : "Squad list to be confirmed by federation."}
             </p>
           </div>
         </div>
@@ -162,7 +164,9 @@ function TeamDetail() {
               </div>
             );
           })}
-          {matches?.length === 0 && <p className="text-sm text-muted-foreground">No fixtures yet.</p>}
+          {matches?.length === 0 && (
+            <p className="text-sm text-muted-foreground">No fixtures yet.</p>
+          )}
         </div>
       </section>
     </div>

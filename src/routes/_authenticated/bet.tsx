@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Check, Lock, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/bet")({
-  head: () => ({ meta: [{ title: "Choose your teams · Focus World Cup Pool" }] }),
+  head: () => ({ meta: [{ title: "Choose your clubs · Focus Premier League Pool" }] }),
   component: BetPage,
 });
 
@@ -51,7 +51,7 @@ function BetPage() {
   const teams = useQuery({
     queryKey: ["teams", "all"],
     queryFn: async () =>
-      (await supabase.from("teams").select("*").order("group_name").order("name")).data ?? [],
+      (await supabase.from("teams").select("*").eq("group_name", "PL").order("name")).data ?? [],
   });
 
   const myPicks = useQuery({

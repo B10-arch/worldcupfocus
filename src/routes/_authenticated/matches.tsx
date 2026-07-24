@@ -7,7 +7,7 @@ import { MatchHighlights } from "@/components/MatchHighlights";
 import { ChevronDown } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/matches")({
-  head: () => ({ meta: [{ title: "Matches · Focus World Cup Pool" }] }),
+  head: () => ({ meta: [{ title: "Matches · Focus Premier League Pool" }] }),
   component: MatchesPage,
 });
 
@@ -25,6 +25,7 @@ function MatchesPage() {
       const { data } = await supabase
         .from("matches")
         .select("*, team_a:teams!matches_team_a_id_fkey(*), team_b:teams!matches_team_b_id_fkey(*)")
+        .eq("stage", "league") // Premier League fixtures only
         .order("kickoff_utc");
       return data ?? [];
     },
@@ -100,7 +101,7 @@ function MatchesPage() {
       {tbc.length > 0 && (
         <Section
           title="Time TBC"
-          subtitle="Fixture confirmed; kickoff time will be published by FIFA closer to the date."
+          subtitle="Fixture confirmed; kickoff time will be published closer to the date."
           list={tbc}
           hideTime
         />
@@ -172,7 +173,12 @@ function Section({
 /** A single match as a responsive card: meta + status on top, teams below. */
 function MatchRow({ m, hideTime }: { m: any; hideTime?: boolean }) {
   const played = m.status === "finished";
-  const stage = m.stage === "group" ? `Group ${m.group_name}` : String(m.stage).toUpperCase();
+  const stage =
+    m.stage === "league"
+      ? `Gameweek ${String(m.group_name ?? "").replace(/\D/g, "") || m.group_name}`
+      : m.stage === "group"
+        ? `Group ${m.group_name}`
+        : String(m.stage).toUpperCase();
   return (
     <div className="rounded-2xl border border-border bg-surface p-3 shadow-card sm:px-4">
       <div className="mb-2 flex items-center justify-between gap-2">

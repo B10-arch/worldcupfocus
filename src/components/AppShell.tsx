@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   CalendarDays,
   Flag,
-  GitFork,
   Medal,
   Tv,
   Handshake,
@@ -19,8 +18,7 @@ import { X } from "lucide-react";
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/matches", label: "Matches", icon: CalendarDays },
-  { to: "/teams", label: "Teams", icon: Flag },
-  { to: "/bracket", label: "Bracket", icon: GitFork },
+  { to: "/teams", label: "Clubs & Table", icon: Flag },
   { to: "/friendly", label: "Side Bets", icon: Handshake },
   { to: "/leaderboard", label: "Leaderboard", icon: Medal },
   { to: "/watch", label: "Watch", icon: Tv },
@@ -75,11 +73,11 @@ export function AppShell({
         >
           <div className="mx-auto flex max-w-7xl items-center gap-3 px-6 py-2 pr-10 text-sm">
             <span className="hidden shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest sm:inline">
-              ⚽ Coming soon
+              ⚽ New season
             </span>
             <p className="min-w-0 flex-1 truncate font-medium sm:text-center">
-              <span className="font-bold">English Premier League</span> is coming back here — get
-              ready to pick your clubs. 🏴󠁧󠁢󠁥󠁮󠁧󠁿
+              <span className="font-bold">Premier League 2026/27</span> is live here — season kicks
+              off Sat 22 Aug. Back your clubs! 🏴󠁧󠁢󠁥󠁮󠁗󠁿
             </p>
           </div>
           <button
@@ -191,7 +189,7 @@ export function AppShell({
 
       <footer className="mt-20 border-t border-border bg-surface py-8 text-center">
         <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          Focus World Cup 2026 Pool · Internal use only · NPT
+          Focus Premier League 2026/27 Pool · Internal use only · NPT
         </p>
       </footer>
     </div>

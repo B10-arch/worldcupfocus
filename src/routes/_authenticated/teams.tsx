@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/teams")({
-  head: () => ({ meta: [{ title: "Teams & Groups · Focus World Cup Pool" }] }),
+  head: () => ({ meta: [{ title: "Clubs & Table · Focus Premier League Pool" }] }),
   component: TeamsPage,
 });
 
@@ -25,7 +25,7 @@ function TeamsPage() {
       const { data } = await supabase
         .from("teams")
         .select("*")
-        .order("group_name")
+        .eq("group_name", "PL") // Premier League clubs only
         .order("name");
       return (data ?? []) as Team[];
     },
@@ -37,7 +37,7 @@ function TeamsPage() {
       const { data } = await supabase
         .from("matches")
         .select("group_name, status, score_a, score_b, team_a_id, team_b_id")
-        .eq("stage", "group")
+        .eq("stage", "league")
         .eq("status", "finished");
       return data ?? [];
     },
@@ -52,10 +52,10 @@ function TeamsPage() {
   return (
     <div className="space-y-12">
       <header>
-        <h1 className="font-display text-4xl font-bold">Groups & teams</h1>
+        <h1 className="font-display text-4xl font-bold">Clubs & table</h1>
         <p className="mt-2 text-muted-foreground">
-          48 nations · 12 groups · standings update only from completed matches. Click any team for a
-          full profile.
+          Premier League 2026/27 · 20 clubs · one table · standings update from completed matches.
+          Click any club for a full profile.
         </p>
       </header>
 
@@ -66,7 +66,9 @@ function TeamsPage() {
           const standings = computeStandings(list, results ?? []);
           return (
             <section key={g} className="space-y-4">
-              <h2 className="font-display text-xl font-bold">Group {g}</h2>
+              <h2 className="font-display text-xl font-bold">
+                {g === "PL" ? "Premier League table" : `Group ${g}`}
+              </h2>
 
               {/* Standings table */}
               <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
@@ -128,11 +130,10 @@ function TeamsPage() {
                       </div>
                       <div className="flex-1">
                         <p className="font-display text-base font-bold leading-tight">{t.name}</p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">{t.coach}</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          {t.wc_form ?? t.coach}
+                        </p>
                       </div>
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
-                        #{t.fifa_rank}
-                      </span>
                     </div>
                   </Link>
                 ))}
@@ -146,8 +147,14 @@ function TeamsPage() {
 
 type Standing = {
   team: Team;
-  p: number; w: number; d: number; l: number;
-  gf: number; ga: number; gd: number; pts: number;
+  p: number;
+  w: number;
+  d: number;
+  l: number;
+  gf: number;
+  ga: number;
+  gd: number;
+  pts: number;
 };
 
 function computeStandings(teams: Team[], finishedMatches: any[]): Standing[] {
@@ -159,12 +166,26 @@ function computeStandings(teams: Team[], finishedMatches: any[]): Standing[] {
     const a = map.get(m.team_a_id);
     const b = map.get(m.team_b_id);
     if (!a || !b || m.score_a == null || m.score_b == null) continue;
-    a.p++; b.p++;
-    a.gf += m.score_a; a.ga += m.score_b;
-    b.gf += m.score_b; b.ga += m.score_a;
-    if (m.score_a > m.score_b) { a.w++; b.l++; a.pts += 3; }
-    else if (m.score_a < m.score_b) { b.w++; a.l++; b.pts += 3; }
-    else { a.d++; b.d++; a.pts += 1; b.pts += 1; }
+    a.p++;
+    b.p++;
+    a.gf += m.score_a;
+    a.ga += m.score_b;
+    b.gf += m.score_b;
+    b.ga += m.score_a;
+    if (m.score_a > m.score_b) {
+      a.w++;
+      b.l++;
+      a.pts += 3;
+    } else if (m.score_a < m.score_b) {
+      b.w++;
+      a.l++;
+      b.pts += 3;
+    } else {
+      a.d++;
+      b.d++;
+      a.pts += 1;
+      b.pts += 1;
+    }
   }
   for (const s of map.values()) s.gd = s.gf - s.ga;
   return [...map.values()].sort(

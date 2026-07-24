@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { TeamPopularity } from "@/components/TeamPopularity";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
-  head: () => ({ meta: [{ title: "Leaderboard · Focus World Cup Pool" }] }),
+  head: () => ({ meta: [{ title: "Leaderboard · Focus Premier League Pool" }] }),
   component: LeaderboardPage,
 });
 

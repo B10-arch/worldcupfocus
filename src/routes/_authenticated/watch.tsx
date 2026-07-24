@@ -19,7 +19,7 @@ const MATCH_WINDOW_MS = 2.5 * 60 * 60 * 1000;
 const POST_MATCH_MS = 10 * 60 * 1000;
 
 export const Route = createFileRoute("/_authenticated/watch")({
-  head: () => ({ meta: [{ title: "Watch Live · Focus World Cup Pool" }] }),
+  head: () => ({ meta: [{ title: "Watch Live · Focus Premier League Pool" }] }),
   component: WatchPage,
 });
 
@@ -182,9 +182,9 @@ function WatchPage() {
       </div>
 
       <p className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
-        Focus World Cup Pool is a free, non-commercial game for pool members only. Live streams are
-        gathered from publicly available third-party sources — we don&apos;t host, control, or sell
-        them — and this site isn&apos;t affiliated with FIFA or any official broadcaster.
+        Focus Premier League Pool is a free, non-commercial game for pool members only. Live streams
+        are gathered from publicly available third-party sources — we don&apos;t host, control, or
+        sell them — and this site isn&apos;t affiliated with FIFA or any official broadcaster.
       </p>
     </div>
   );
@@ -379,7 +379,7 @@ function Placeholder({ text }: { text: string }) {
   );
 }
 
-/** "FIFA World Cup 2026" + a live ticking countdown to the next match. */
+/** "Premier League 2026/27" + a live ticking countdown to the next match. */
 function CountdownCard({ match }: { match: WatchMatch }) {
   const target = Date.parse(match.kickoff_utc);
   const a = match.team_a;
@@ -394,7 +394,7 @@ function CountdownCard({ match }: { match: WatchMatch }) {
       </span>
       <h2 className="mt-5 flex items-center justify-center gap-3 font-display text-4xl font-bold leading-tight md:text-5xl">
         <Trophy className="size-9 text-amber-pop" />
-        FIFA <span className="text-primary">World Cup</span> 2026
+        FIFA <span className="text-primary">Premier League</span> 2026
       </h2>
       <p className="mt-6 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
         Next match kicks off in

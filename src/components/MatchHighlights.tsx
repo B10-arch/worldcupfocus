@@ -52,7 +52,7 @@ function toEmbed(raw?: string | null): Embed | null {
 }
 
 function youtubeSearchUrl(nameA?: string, nameB?: string): string {
-  const q = `${nameA ?? "Team A"} vs ${nameB ?? "Team B"} 2026 World Cup highlights`;
+  const q = `${nameA ?? "Team A"} vs ${nameB ?? "Team B"} Premier League 2026/27 highlights`;
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 }
 

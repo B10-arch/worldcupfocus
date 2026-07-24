@@ -11,7 +11,7 @@ import { MatchHighlightsAdmin } from "@/components/MatchHighlightsAdmin";
 const ENTRY_FEE = 1000;
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Admin · Focus World Cup Pool" }] }),
+  head: () => ({ meta: [{ title: "Admin · Focus Premier League Pool" }] }),
   beforeLoad: async ({ context }) => {
     const { data } = await supabase
       .from("user_roles")

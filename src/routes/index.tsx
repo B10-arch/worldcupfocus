@@ -5,16 +5,17 @@ import trophyHero from "@/assets/trophy-hero.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Focus World Cup 2026 Pool" },
+      { title: "Focus Premier League 2026/27 Pool" },
       {
         name: "description",
         content:
-          "The internal Focus betting pool for the 2026 FIFA World Cup. Back your team, climb the leaderboard, win the pot.",
+          "The internal Focus betting pool for the 2026/27 Premier League. Back your team, climb the leaderboard, win the pot.",
       },
-      { property: "og:title", content: "Focus World Cup 2026 Pool" },
+      { property: "og:title", content: "Focus Premier League 2026/27 Pool" },
       {
         property: "og:description",
-        content: "Back your team for Rs. 1,000. Split the prize. NPT match schedule, live bracket, daily trivia.",
+        content:
+          "Back your team for Rs. 1,000. Split the prize. NPT match schedule, live bracket, daily trivia.",
       },
     ],
   }),
@@ -33,7 +34,7 @@ function Landing() {
             >
               <Trophy className="size-5" />
             </div>
-            <span className="font-display text-xl font-bold">Focus World Cup Pool</span>
+            <span className="font-display text-xl font-bold">Focus Premier League Pool</span>
           </div>
           <Link
             to="/login"
@@ -47,7 +48,7 @@ function Landing() {
       <section className="relative isolate overflow-hidden bg-night pt-24 pb-32 text-white">
         <img
           src={trophyHero}
-          alt="FIFA World Cup trophy"
+          alt="Premier League trophy"
           width={1280}
           height={1280}
           className="absolute right-0 top-0 -z-10 h-full w-1/2 object-cover opacity-60 mask-l-from-50% mask-l-to-100%"
@@ -70,8 +71,9 @@ function Landing() {
               </span>
             </h1>
             <p className="max-w-lg text-lg text-slate-300">
-              The internal Focus World Cup 2026 betting pool. Flat Rs. 1,000 entry. If two people pick the same
-              champion, you split the pot — no drama. NPT-converted matches, daily trivia, live bracket.
+              The internal Focus Premier League 2026/27 betting pool. Flat Rs. 1,000 entry. If two
+              people pick the same champion, you split the pot — no drama. NPT-converted matches,
+              daily trivia, live bracket.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
@@ -104,23 +106,23 @@ function Landing() {
             {
               icon: Users2,
               title: "Pool, not gamble",
-              body:
-                "Flat Rs. 1,000 from every player. Winners split the pot if multiple people back the same champion. Friendly, simple.",
+              body: "Flat Rs. 1,000 from every player. Winners split the pot if multiple people back the same champion. Friendly, simple.",
             },
             {
               icon: Brain,
               title: "100-question trivia",
-              body:
-                "Tiered Beginner → Professional → Expertise quiz. Clear a tier to unlock the next. Daily fact on the dashboard.",
+              body: "Tiered Beginner → Professional → Expertise quiz. Clear a tier to unlock the next. Daily fact on the dashboard.",
             },
             {
               icon: Medal,
               title: "Live leaderboard",
-              body:
-                "Points update automatically as matches end. Tied at the end? Whoever placed their bet first wins the tiebreaker.",
+              body: "Points update automatically as matches end. Tied at the end? Whoever placed their bet first wins the tiebreaker.",
             },
           ].map((f) => (
-            <div key={f.title} className="rounded-3xl border border-border bg-surface p-6 shadow-card">
+            <div
+              key={f.title}
+              className="rounded-3xl border border-border bg-surface p-6 shadow-card"
+            >
               <div
                 className="mb-4 flex size-10 items-center justify-center rounded-xl text-white"
                 style={{ backgroundImage: "var(--gradient-brand)" }}

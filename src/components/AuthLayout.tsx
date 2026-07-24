@@ -25,18 +25,18 @@ export function AuthLayout({
           >
             <Trophy className="size-5" />
           </div>
-          <span className="font-display text-xl font-bold">Focus World Cup Pool</span>
+          <span className="font-display text-xl font-bold">Focus Premier League Pool</span>
         </div>
         <img
           src={trophyHero}
-          alt="World Cup trophy"
+          alt="Premier League trophy"
           width={1024}
           height={1024}
           className="absolute inset-0 -z-0 size-full object-cover opacity-40"
         />
         <div className="relative z-10 max-w-md">
           <span className="inline-block rounded-full bg-accent/20 px-3 py-1 text-xs font-bold uppercase tracking-widest text-accent">
-            2026 World Cup
+            Premier League 2026/27
           </span>
           <h1 className="mt-4 font-display text-4xl font-bold leading-tight">
             Back your team. Split the glory.

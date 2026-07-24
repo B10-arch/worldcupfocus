@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/quiz")({
-  head: () => ({ meta: [{ title: "Daily Quiz · Focus World Cup Pool" }] }),
+  head: () => ({ meta: [{ title: "Daily Quiz · Focus Premier League Pool" }] }),
   component: DailyQuizPage,
 });
 

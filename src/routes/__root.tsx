@@ -58,7 +58,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           >
             Try again
           </button>
-          <a href="/" className="rounded-full border border-border bg-surface px-4 py-2 text-sm font-bold">
+          <a
+            href="/"
+            className="rounded-full border border-border bg-surface px-4 py-2 text-sm font-bold"
+          >
             Go home
           </a>
         </div>
@@ -72,14 +75,31 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Focus World Cup Pool" },
-      { name: "description", content: "Internal Focus betting pool for the 2026 FIFA World Cup." },
-      { property: "og:title", content: "Focus World Cup Pool" },
-      { name: "twitter:title", content: "Focus World Cup Pool" },
-      { property: "og:description", content: "Internal Focus betting pool for the 2026 FIFA World Cup." },
-      { name: "twitter:description", content: "Internal Focus betting pool for the 2026 FIFA World Cup." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/91649544-bead-4c7d-b490-c4a89d207d18" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/91649544-bead-4c7d-b490-c4a89d207d18" },
+      { title: "Focus Premier League Pool" },
+      {
+        name: "description",
+        content: "Internal Focus betting pool for the 2026/27 Premier League.",
+      },
+      { property: "og:title", content: "Focus Premier League Pool" },
+      { name: "twitter:title", content: "Focus Premier League Pool" },
+      {
+        property: "og:description",
+        content: "Internal Focus betting pool for the 2026/27 Premier League.",
+      },
+      {
+        name: "twitter:description",
+        content: "Internal Focus betting pool for the 2026/27 Premier League.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/91649544-bead-4c7d-b490-c4a89d207d18",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/91649544-bead-4c7d-b490-c4a89d207d18",
+      },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
     ],
