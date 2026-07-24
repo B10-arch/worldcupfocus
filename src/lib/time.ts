@@ -1,14 +1,13 @@
 // Nepal Standard Time = UTC+5:45
 const NPT_OFFSET_MIN = 5 * 60 + 45;
 
-// Tournament anchors (UTC). NPT = UTC + 5:45.
-// Opening match: Mexico vs South Africa — Fri Jun 12, 00:45 NPT == 2026-06-11 19:00 UTC
-export const TOURNAMENT_START_UTC = new Date("2026-06-11T19:00:00Z");
-// Bet lock: picks close at 22:00 NPT on Jun 12 == 16:15 UTC on Jun 12.
-// Once this passes, team selection is permanently closed — only players who
-// already chose a team keep playing; everyone else is view-only. Enforced in
-// the UI, the server functions, and the DB trigger (20260611190000_bet_lock.sql).
-export const BET_LOCK_UTC = new Date("2026-06-12T16:15:00Z");
+// Season anchors (UTC). NPT = UTC + 5:45.
+// Premier League 2026/27 opens: Arsenal v Coventry — Sat Aug 22, 00:45 NPT
+// == 2026-08-21 19:00 UTC (the season's first kickoff).
+export const TOURNAMENT_START_UTC = new Date("2026-08-21T19:00:00Z");
+// Pick lock: club selection closes at the first kickoff (2026-08-21 19:00 UTC).
+// Keep in sync with the DB trigger enforce_bet_lock (updated for the new season).
+export const BET_LOCK_UTC = new Date("2026-08-21T19:00:00Z");
 
 export function isBetLocked(now: Date = new Date()): boolean {
   return now.getTime() >= BET_LOCK_UTC.getTime();
