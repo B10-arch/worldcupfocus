@@ -1,10 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TeamPopularity } from "@/components/TeamPopularity";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
-  head: () => ({ meta: [{ title: "Leaderboard · Focus Premier League Pool" }] }),
+  // Side-bets-only season — the picks leaderboard is retired; go to Side Bets.
+  beforeLoad: () => {
+    throw redirect({ to: "/friendly" });
+  },
+  head: () => ({ meta: [{ title: "Side Bets · Focus Premier League Pool" }] }),
   component: LeaderboardPage,
 });
 

@@ -2,6 +2,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPT, formatNPTDate } from "@/lib/time";
+import { Crest } from "@/components/Crest";
 import { ArrowLeft } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/teams/$code")({
@@ -63,18 +64,15 @@ function TeamDetail() {
 
       <header className="rounded-3xl border border-border bg-surface p-8 shadow-card">
         <div className="flex flex-wrap items-center gap-6">
-          <div className="grid size-24 place-items-center rounded-2xl bg-secondary text-7xl">
-            {team.flag_emoji}
+          <div className="grid size-24 place-items-center rounded-2xl bg-secondary">
+            <Crest src={team.flag_emoji} size={76} />
           </div>
           <div className="flex-1">
             <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              Group {team.group_name}
+              Premier League 2026/27
             </p>
             <h1 className="font-display text-5xl font-bold">{team.name}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Manager: <strong className="text-foreground">{team.coach ?? "TBC"}</strong> · FIFA
-              Rank #{team.fifa_rank ?? "—"}
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">{team.wc_form ?? ""}</p>
           </div>
           {underdog && (
             <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-amber-pop">
@@ -104,7 +102,7 @@ function TeamDetail() {
 
       {/* Group opponents / head-to-head */}
       <section>
-        <h2 className="mb-4 font-display text-xl font-bold">Group {team.group_name} opponents</h2>
+        <h2 className="mb-4 font-display text-xl font-bold">Other Premier League clubs</h2>
         <div className="grid gap-3 md:grid-cols-3">
           {(groupmates ?? []).map((g) => (
             <Link
@@ -114,15 +112,12 @@ function TeamDetail() {
               className="rounded-2xl border border-border bg-surface p-4 shadow-card transition hover:border-primary/50"
             >
               <div className="flex items-center gap-3">
-                <span className="text-3xl">{g.flag_emoji}</span>
+                <Crest src={g.flag_emoji} size={34} />
                 <div className="flex-1">
                   <p className="font-bold">{g.name}</p>
-                  <p className="text-[11px] text-muted-foreground">FIFA #{g.fifa_rank}</p>
+                  <p className="text-[11px] text-muted-foreground">{g.wc_form ?? ""}</p>
                 </div>
               </div>
-              <p className="mt-3 text-[11px] uppercase tracking-widest text-muted-foreground">
-                Head-to-head: TBC
-              </p>
             </Link>
           ))}
         </div>
@@ -140,7 +135,7 @@ function TeamDetail() {
                 className="flex items-center justify-between rounded-xl border border-border bg-surface p-4"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{opponent?.flag_emoji ?? "🏳️"}</span>
+                  <Crest src={opponent?.flag_emoji} size={28} />
                   <div>
                     <p className="font-semibold">vs {opponent?.name ?? "TBD"}</p>
                     <p className="text-xs text-muted-foreground">

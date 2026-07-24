@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatNPT, formatNPTDate } from "@/lib/time";
 import { Handshake, ArrowUpRight, Flame } from "lucide-react";
 import { MatchHighlights } from "@/components/MatchHighlights";
+import { Crest } from "@/components/Crest";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard · Focus Premier League Pool" }] }),
@@ -201,8 +202,8 @@ function MatchCard({ match }: { match: any }) {
 function TeamSide({ team }: { team: any }) {
   return (
     <div className="flex flex-1 flex-col items-center gap-2">
-      <div className="grid size-12 place-items-center rounded-lg bg-secondary text-2xl">
-        {team?.flag_emoji ?? "🏳️"}
+      <div className="grid size-12 place-items-center rounded-lg bg-secondary">
+        <Crest src={team?.flag_emoji} size={34} />
       </div>
       <span className="text-xs font-bold">{team?.name ?? "TBD"}</span>
     </div>

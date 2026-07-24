@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Crest } from "@/components/Crest";
 
 export const Route = createFileRoute("/_authenticated/teams")({
   head: () => ({ meta: [{ title: "Clubs & Table · Focus Premier League Pool" }] }),
@@ -97,7 +98,7 @@ function TeamsPage() {
                             params={{ code: row.team.code }}
                             className="flex items-center gap-2 font-semibold hover:text-primary"
                           >
-                            <span className="text-lg">{row.team.flag_emoji}</span>
+                            <Crest src={row.team.flag_emoji} size={22} />
                             {row.team.name}
                           </Link>
                         </td>
@@ -125,8 +126,8 @@ function TeamsPage() {
                     className="group rounded-2xl border border-border bg-surface p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-lg"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="grid size-12 place-items-center rounded-xl bg-secondary text-3xl">
-                        {t.flag_emoji}
+                      <div className="grid size-12 place-items-center rounded-xl bg-secondary">
+                        <Crest src={t.flag_emoji} size={36} />
                       </div>
                       <div className="flex-1">
                         <p className="font-display text-base font-bold leading-tight">{t.name}</p>

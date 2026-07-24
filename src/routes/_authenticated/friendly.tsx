@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPTDate, formatNPT } from "@/lib/time";
+import { Crest } from "@/components/Crest";
 import { toast } from "sonner";
 import {
   Handshake,
@@ -736,7 +737,7 @@ function BetForm({
                     : "border-border bg-background text-muted-foreground hover:border-primary"
                 }`}
               >
-                {t.flag_emoji} {t.name}
+                <Crest src={t.flag_emoji} size={16} /> {t.name}
               </button>
             ),
         )}
@@ -830,9 +831,9 @@ function GameCard({
   const winnerName =
     finished && match.winner_team_id
       ? match.winner_team_id === a?.id
-        ? `${a?.flag_emoji ?? ""} ${a?.name ?? ""}`.trim()
+        ? (a?.name ?? "")
         : match.winner_team_id === b?.id
-          ? `${b?.flag_emoji ?? ""} ${b?.name ?? ""}`.trim()
+          ? (b?.name ?? "")
           : null
       : null;
 
@@ -891,7 +892,9 @@ function GameCard({
 
           <div className="mt-5 flex items-center justify-center gap-3 sm:gap-6">
             <div className="flex-1 text-right">
-              <div className="text-4xl sm:text-5xl">{a?.flag_emoji ?? "🏳️"}</div>
+              <div className="flex justify-end">
+                <Crest src={a?.flag_emoji} size={56} />
+              </div>
               <div className="mt-1.5 font-display text-base font-bold sm:text-xl">
                 {a?.name ?? "TBD"}
               </div>
@@ -900,7 +903,9 @@ function GameCard({
               VS
             </div>
             <div className="flex-1 text-left">
-              <div className="text-4xl sm:text-5xl">{b?.flag_emoji ?? "🏳️"}</div>
+              <div className="flex justify-start">
+                <Crest src={b?.flag_emoji} size={56} />
+              </div>
               <div className="mt-1.5 font-display text-base font-bold sm:text-xl">
                 {b?.name ?? "TBD"}
               </div>
@@ -936,11 +941,11 @@ function GameCard({
     <div className="rounded-2xl border border-border bg-surface p-4 shadow-card">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2 text-sm font-bold">
-          <span className="text-lg">{a?.flag_emoji ?? "🏳️"}</span>
+          <Crest src={a?.flag_emoji} size={22} />
           <span className="truncate">{a?.name ?? "TBD"}</span>
           <span className="text-muted-foreground">v</span>
           <span className="truncate">{b?.name ?? "TBD"}</span>
-          <span className="text-lg">{b?.flag_emoji ?? "🏳️"}</span>
+          <Crest src={b?.flag_emoji} size={22} />
         </div>
         <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
           {finished
@@ -1054,9 +1059,11 @@ function BetRow({
           <Lock className="size-3" /> Locked
         </div>
         <p className="mt-1 text-sm">
-          <span className="font-bold">{proposerName}</span> {proposerTeam?.flag_emoji}
+          <span className="font-bold">{proposerName}</span>{" "}
+          <Crest src={proposerTeam?.flag_emoji} size={16} className="align-[-3px]" />
           <span className="text-muted-foreground"> vs </span>
-          <span className="font-bold">{acceptorName}</span> {otherTeam?.flag_emoji}
+          <span className="font-bold">{acceptorName}</span>{" "}
+          <Crest src={otherTeam?.flag_emoji} size={16} className="align-[-3px]" />
         </p>
         <p className="text-xs text-muted-foreground">
           Stake: <span className="font-semibold text-foreground">{bet.stake}</span>
@@ -1127,7 +1134,8 @@ function BetRow({
         )}
         <p>
           <span className="font-bold">{mine ? "You" : proposerName}</span> back{" "}
-          {proposerTeam?.flag_emoji} {proposerTeam?.name}
+          <Crest src={proposerTeam?.flag_emoji} size={16} className="align-[-3px]" />{" "}
+          {proposerTeam?.name}
           {targetName && (
             <>
               <span className="text-muted-foreground"> · challenging </span>
@@ -1164,7 +1172,7 @@ function BetRow({
               disabled={busy}
               className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
             >
-              Accept · {otherTeam?.flag_emoji}
+              Accept · <Crest src={otherTeam?.flag_emoji} size={15} className="align-[-2px]" />
             </button>
             <button
               onClick={reject}

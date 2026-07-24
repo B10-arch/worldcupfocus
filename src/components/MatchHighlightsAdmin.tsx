@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PlayCircle } from "lucide-react";
+import { Crest } from "@/components/Crest";
 
 type AdminMatch = {
   id: string;
@@ -113,11 +114,11 @@ export function MatchHighlightsAdmin() {
               className="flex flex-col gap-2 rounded-xl border border-border bg-background p-3 md:flex-row md:items-center"
             >
               <div className="flex min-w-0 shrink-0 items-center gap-2 text-sm font-bold md:w-56">
-                <span>{m.team_a?.flag_emoji ?? "🏳️"}</span>
+                <Crest src={m.team_a?.flag_emoji} size={18} />
                 <span className="truncate">
                   {m.team_a?.name ?? "TBD"} vs {m.team_b?.name ?? "TBD"}
                 </span>
-                <span>{m.team_b?.flag_emoji ?? "🏳️"}</span>
+                <Crest src={m.team_b?.flag_emoji} size={18} />
                 {m.score_a != null && m.score_b != null && (
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {m.score_a}–{m.score_b}

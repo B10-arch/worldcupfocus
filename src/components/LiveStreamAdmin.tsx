@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Tv } from "lucide-react";
+import { Crest } from "@/components/Crest";
 import { formatNPTDate } from "@/lib/time";
 import { parseStreams, buildStreams, matchKey } from "@/lib/streams";
 
@@ -141,11 +142,11 @@ export function LiveStreamAdmin() {
             className="flex flex-col gap-1.5 rounded-xl border border-border bg-background p-3 sm:flex-row sm:items-center sm:gap-3"
           >
             <div className="flex min-w-0 shrink-0 items-center gap-2 text-sm font-bold sm:w-52">
-              <span>{m.team_a?.flag_emoji ?? "🏳️"}</span>
+              <Crest src={m.team_a?.flag_emoji} size={18} />
               <span className="truncate">
                 {m.team_a?.name ?? "TBD"} v {m.team_b?.name ?? "TBD"}
               </span>
-              <span>{m.team_b?.flag_emoji ?? "🏳️"}</span>
+              <Crest src={m.team_b?.flag_emoji} size={18} />
             </div>
             <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-muted-foreground sm:w-24">
               {formatNPTDate(m.kickoff_utc)}

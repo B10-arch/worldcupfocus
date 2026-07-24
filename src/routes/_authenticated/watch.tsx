@@ -6,6 +6,7 @@ import { formatNPTFull } from "@/lib/time";
 import { feedsForLiveMatch, parseStreams } from "@/lib/streams";
 import { expandFeeds, type Server } from "@/lib/hely-streams";
 import { Tv, Trophy, Maximize2, Volume2, MessageCircle, Send } from "lucide-react";
+import { Crest } from "@/components/Crest";
 import { toast } from "sonner";
 
 // Start the stream 30 min before kickoff — the broadcast's pre-match show
@@ -165,9 +166,12 @@ function WatchPage() {
               />
               {next && (
                 <p className="text-xs text-muted-foreground">
-                  Next match: {next.team_a?.flag_emoji} {next.team_a?.name}{" "}
-                  <span className="text-muted-foreground">vs</span> {next.team_b?.name}{" "}
-                  {next.team_b?.flag_emoji} · {formatNPTFull(next.kickoff_utc)}
+                  Next match:{" "}
+                  <Crest src={next.team_a?.flag_emoji} size={15} className="align-[-2px]" />{" "}
+                  {next.team_a?.name} <span className="text-muted-foreground">vs</span>{" "}
+                  {next.team_b?.name}{" "}
+                  <Crest src={next.team_b?.flag_emoji} size={15} className="align-[-2px]" /> ·{" "}
+                  {formatNPTFull(next.kickoff_utc)}
                 </p>
               )}
             </div>
@@ -359,10 +363,10 @@ function MatchPlayer({
           >
             {match.status === "live" ? "● Live" : "On air"}
           </span>
-          <span className="min-w-0 truncate">
-            {a?.flag_emoji ?? "🏳️"} {a?.name ?? "TBD"}{" "}
+          <span className="flex min-w-0 items-center gap-1 truncate">
+            <Crest src={a?.flag_emoji} size={18} /> {a?.name ?? "TBD"}{" "}
             <span className="text-muted-foreground">vs</span> {b?.name ?? "TBD"}{" "}
-            {b?.flag_emoji ?? "🏳️"}
+            <Crest src={b?.flag_emoji} size={18} />
           </span>
         </div>
       }
@@ -394,15 +398,16 @@ function CountdownCard({ match }: { match: WatchMatch }) {
       </span>
       <h2 className="mt-5 flex items-center justify-center gap-3 font-display text-4xl font-bold leading-tight md:text-5xl">
         <Trophy className="size-9 text-amber-pop" />
-        FIFA <span className="text-primary">Premier League</span> 2026
+        <span className="text-primary">Premier League</span> 2026/27
       </h2>
       <p className="mt-6 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
         Next match kicks off in
       </p>
       {(a || b) && (
-        <p className="mt-2 font-display text-xl font-bold md:text-2xl">
-          {a?.flag_emoji} {a?.name ?? "TBD"} <span className="text-slate-400">vs</span>{" "}
-          {b?.name ?? "TBD"} {b?.flag_emoji}
+        <p className="mt-2 flex items-center justify-center gap-2 font-display text-xl font-bold md:text-2xl">
+          <Crest src={a?.flag_emoji} size={26} /> {a?.name ?? "TBD"}{" "}
+          <span className="text-slate-400">vs</span> {b?.name ?? "TBD"}{" "}
+          <Crest src={b?.flag_emoji} size={26} />
         </p>
       )}
       <Countdown target={target} />

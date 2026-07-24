@@ -1,11 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPT, formatNPTDate } from "@/lib/time";
 
 export const Route = createFileRoute("/_authenticated/bracket")({
-  head: () => ({ meta: [{ title: "Bracket · Focus Premier League Pool" }] }),
+  // A league has no knockout bracket — send anyone here to the dashboard.
+  beforeLoad: () => {
+    throw redirect({ to: "/dashboard" });
+  },
+  head: () => ({ meta: [{ title: "Focus Premier League Pool" }] }),
   component: BracketPage,
 });
 

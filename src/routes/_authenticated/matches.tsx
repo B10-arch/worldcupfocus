@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatNPT, formatNPTDate, isTournamentStarted } from "@/lib/time";
 import { MatchHighlights } from "@/components/MatchHighlights";
+import { Crest } from "@/components/Crest";
 import { ChevronDown } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/matches")({
@@ -200,7 +201,7 @@ function MatchRow({ m, hideTime }: { m: any; hideTime?: boolean }) {
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-2xl">{m.team_a?.flag_emoji ?? "🏳️"}</span>
+        <Crest src={m.team_a?.flag_emoji} size={28} />
         <span className="min-w-0 flex-1 truncate font-semibold">{m.team_a?.name ?? "TBD"}</span>
         {played ? (
           <span className="shrink-0 rounded bg-muted px-2 py-0.5 font-mono text-sm font-bold">
@@ -212,7 +213,7 @@ function MatchRow({ m, hideTime }: { m: any; hideTime?: boolean }) {
         <span className="min-w-0 flex-1 truncate text-right font-semibold">
           {m.team_b?.name ?? "TBD"}
         </span>
-        <span className="text-2xl">{m.team_b?.flag_emoji ?? "🏳️"}</span>
+        <Crest src={m.team_b?.flag_emoji} size={28} />
       </div>
     </div>
   );
