@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   CalendarDays,
   Flag,
-  Medal,
   Tv,
   Handshake,
   LogOut,
@@ -20,7 +19,6 @@ const navItems = [
   { to: "/matches", label: "Matches", icon: CalendarDays },
   { to: "/teams", label: "Clubs & Table", icon: Flag },
   { to: "/friendly", label: "Side Bets", icon: Handshake },
-  { to: "/leaderboard", label: "Leaderboard", icon: Medal },
   { to: "/watch", label: "Watch", icon: Tv },
 ] as const;
 

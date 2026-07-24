@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useRouter, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -9,7 +9,12 @@ import { toast } from "sonner";
 import { Check, Lock, X } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/bet")({
-  head: () => ({ meta: [{ title: "Choose your clubs · Focus Premier League Pool" }] }),
+  // This season is side-bets only — there's no team-picking pool. Anyone who
+  // lands on the old pick page is sent to Side Bets.
+  beforeLoad: () => {
+    throw redirect({ to: "/friendly" });
+  },
+  head: () => ({ meta: [{ title: "Side Bets · Focus Premier League Pool" }] }),
   component: BetPage,
 });
 
