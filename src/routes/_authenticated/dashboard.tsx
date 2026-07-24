@@ -95,10 +95,92 @@ function Dashboard() {
     },
   });
 
+  // Once the Final is played, the World Cup champion + the pool winners (everyone
+  // who backed that team) headline the dashboard.
+  const championQ = useQuery({
+    queryKey: ["champion"],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("matches")
+        .select(
+          "status, winner_team_id, win:teams!matches_winner_team_id_fkey(code,name,flag_emoji)",
+        )
+        .eq("stage", "final")
+        .maybeSingle();
+      if (!data || data.status !== "finished" || !data.winner_team_id) return null;
+      return (data.win ?? null) as { code: string; name: string; flag_emoji: string } | null;
+    },
+  });
+
+  const winnersQ = useQuery({
+    queryKey: ["pool-winners"],
+    enabled: !!championQ.data,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("leaderboard_entries")
+        .select("user_id, display_name, points, picks")
+        .gt("pick_count", 0);
+      return (data ?? []) as Array<{
+        user_id: string;
+        display_name: string | null;
+        points: number;
+        picks: LeaderboardPick[];
+      }>;
+    },
+  });
+
+  const champion = championQ.data ?? null;
+  const winners = champion
+    ? (winnersQ.data ?? [])
+        .filter((e) => (e.picks ?? []).some((p) => p.team_code === champion.code))
+        .sort((a, b) => b.points - a.points)
+    : [];
+
   const pot = (betCount.data ?? 0) * ENTRY_FEE;
 
   return (
     <div className="space-y-12">
+      {champion && (
+        <div
+          className="relative overflow-hidden rounded-3xl border-2 border-primary/50 p-8 text-center text-white shadow-glow"
+          style={{ backgroundImage: "var(--gradient-night)" }}
+        >
+          <span className="inline-flex items-center gap-2 rounded-full bg-primary/15 px-4 py-1 text-[11px] font-bold uppercase tracking-[0.25em] text-primary">
+            <Trophy className="size-3.5" /> World Cup 2026 Champions
+          </span>
+          <div className="mt-5 text-7xl leading-none">{champion.flag_emoji}</div>
+          <h2 className="mt-3 font-display text-4xl font-bold md:text-5xl">{champion.name}</h2>
+          <p className="mt-1 text-sm text-slate-300">are champions of the world 🏆</p>
+
+          {winners.length > 0 && (
+            <div className="mx-auto mt-7 max-w-2xl rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-300">
+                  Pool winners — backed {champion.name}
+                </p>
+                <span className="inline-flex items-center gap-1 rounded-full bg-pitch/20 px-2.5 py-0.5 text-[11px] font-bold text-pitch">
+                  ✓ All winners paid
+                </span>
+              </div>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {winners.map((w) => (
+                  <span
+                    key={w.user_id}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm font-bold"
+                  >
+                    {champion.flag_emoji} {w.display_name ?? "Player"}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] text-slate-400">
+                {winners.length} winner{winners.length === 1 ? "" : "s"} · prize pool split equally
+                · paid out in full
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {!isTournamentStarted() && (
         <div className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-4 text-sm">
           <CalendarClock className="size-5 text-primary" />
@@ -181,11 +263,11 @@ function Dashboard() {
               </span>
             </div>
             <h3 className="mt-4 font-display text-xl font-bold leading-tight">
-              Challenge a friend on a Round of 32 game
+              Challenge a friend on any knockout game
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
               Pick a team and name your stake — money or a dare. Someone takes the other side and it
-              locks in. One bet per person, per game.
+              locks in. Offer as many as you like, then settle up per game once it&apos;s played.
             </p>
           </div>
           <div className="mt-6">
