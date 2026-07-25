@@ -3,17 +3,13 @@ import { Play, Film } from "lucide-react";
 
 /**
  * Premier League best-goals / highlights reels for the dashboard — a featured
- * YouTube player plus a pick-list. Sourced from the official Premier League
- * channel (its goal compilations are globally viewable, unlike geo-locked
- * full-match clips). The first entry is the auto-updating weekly-goals playlist.
+ * YouTube player plus a pick-list. Only season-long GOAL COMPILATIONS are used:
+ * each of these is verified available in Nepal (availableCountries includes NP).
+ * NOT used: per-match / matchweek goal clips or broadcaster (NBC/Sky) uploads —
+ * those are geo-locked per territory and blank out for the Nepal audience.
  */
 type Reel = { id: string; title: string; playlist?: boolean };
 const REELS: Reel[] = [
-  {
-    id: "PLXEMPXZ3PY1he7fqYLqUCi3lWRXT7FyaW",
-    title: "Every Goal, matchweek by matchweek",
-    playlist: true,
-  },
   { id: "Gyafe4HLy9Q", title: "The BEST Premier League goals of 2025/26" },
   { id: "ECy9JJndqBY", title: "Best goals of 2025/26 · Part 1" },
   { id: "7bwGAuuKEuQ", title: "Best goals of 2025/26 · Part 2" },
