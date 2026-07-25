@@ -32,6 +32,28 @@ function MatchesPage() {
     },
   });
 
+  // Goal events, fetched separately so the page still works if the table isn't
+  // created yet (the query just errors quietly and goals stay empty).
+  const { data: events } = useQuery({
+    queryKey: ["match-events"],
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("match_events")
+        .select("match_id, team_id, kind, minute, scorer, assist")
+        .order("minute", { ascending: true });
+      if (error) throw error;
+      return data as any[];
+    },
+    retry: false,
+  });
+  const eventsByMatch = new Map<string, any[]>();
+  for (const e of events ?? []) {
+    const arr = eventsByMatch.get(e.match_id) ?? [];
+    arr.push(e);
+    eventsByMatch.set(e.match_id, arr);
+  }
+
   // Confirmed matches grouped by NPT day; "Time TBC" fixtures kept separate.
   const confirmed = (matches ?? []).filter((m) => !m.time_tbc);
   const tbc = (matches ?? []).filter((m) => m.time_tbc);
@@ -93,10 +115,18 @@ function MatchesPage() {
         )}
       </header>
 
-      {today && <Section title="Today" subtitle={today.label} list={today.list} accent />}
+      {today && (
+        <Section
+          title="Today"
+          subtitle={today.label}
+          list={today.list}
+          events={eventsByMatch}
+          accent
+        />
+      )}
 
       {upcoming.map((g) => (
-        <Section key={g.idx} title={g.label} list={g.list} />
+        <Section key={g.idx} title={g.label} list={g.list} events={eventsByMatch} />
       ))}
 
       {tbc.length > 0 && (
@@ -104,6 +134,7 @@ function MatchesPage() {
           title="Time TBC"
           subtitle="Fixture confirmed; kickoff time will be published closer to the date."
           list={tbc}
+          events={eventsByMatch}
           hideTime
         />
       )}
@@ -126,7 +157,7 @@ function MatchesPage() {
                 )}
               </div>
               {past.map((g) => (
-                <Section key={g.idx} title={g.label} list={g.list} />
+                <Section key={g.idx} title={g.label} list={g.list} events={eventsByMatch} />
               ))}
             </>
           )}
@@ -140,12 +171,14 @@ function Section({
   title,
   subtitle,
   list,
+  events,
   hideTime,
   accent,
 }: {
   title: string;
   subtitle?: string;
   list: any[];
+  events?: Map<string, any[]>;
   hideTime?: boolean;
   accent?: boolean;
 }) {
@@ -164,7 +197,7 @@ function Section({
       </h3>
       <div className="space-y-2">
         {list.map((m) => (
-          <MatchRow key={m.id} m={m} hideTime={hideTime} />
+          <MatchRow key={m.id} m={m} events={events?.get(m.id) ?? []} hideTime={hideTime} />
         ))}
       </div>
     </section>
@@ -172,8 +205,15 @@ function Section({
 }
 
 /** A single match as a responsive card: meta + status on top, teams below. */
-function MatchRow({ m, hideTime }: { m: any; hideTime?: boolean }) {
+function MatchRow({ m, events = [], hideTime }: { m: any; events?: any[]; hideTime?: boolean }) {
   const played = m.status === "finished";
+  // Goals split by side (home = team_a). Own goals count for the OTHER team.
+  const goalFor = (teamId: string) =>
+    events
+      .filter((e) => (e.kind === "own_goal" ? e.team_id !== teamId : e.team_id === teamId))
+      .sort((a, b) => (a.minute ?? 0) - (b.minute ?? 0));
+  const homeGoals = m.team_a?.id ? goalFor(m.team_a.id) : [];
+  const awayGoals = m.team_b?.id ? goalFor(m.team_b.id) : [];
   const stage =
     m.stage === "league"
       ? `Gameweek ${String(m.group_name ?? "").replace(/\D/g, "") || m.group_name}`
@@ -215,6 +255,43 @@ function MatchRow({ m, hideTime }: { m: any; hideTime?: boolean }) {
         </span>
         <Crest src={m.team_b?.flag_emoji} size={28} />
       </div>
+
+      {events.length > 0 && (
+        <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-border pt-2 text-[11px]">
+          <ul className="space-y-1">
+            {homeGoals.map((e) => (
+              <GoalLine key={e.id} e={e} align="left" />
+            ))}
+          </ul>
+          <ul className="space-y-1 text-right">
+            {awayGoals.map((e) => (
+              <GoalLine key={e.id} e={e} align="right" />
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
+  );
+}
+
+/** One goal line: ⚽ 34' Scorer (assist: X). */
+function GoalLine({ e, align }: { e: any; align: "left" | "right" }) {
+  const parts = (
+    <>
+      <span className="font-semibold text-foreground">{e.scorer}</span>
+      {e.kind === "penalty" && <span className="text-muted-foreground"> (pen)</span>}
+      {e.kind === "own_goal" && <span className="text-muted-foreground"> (OG)</span>}
+      {e.minute != null && <span className="text-muted-foreground"> {e.minute}&apos;</span>}
+      {e.assist && (
+        <span className="block text-[10px] text-muted-foreground">assist: {e.assist}</span>
+      )}
+    </>
+  );
+  return (
+    <li className={align === "right" ? "flex flex-col items-end" : ""}>
+      <span>
+        <span className="text-pitch">⚽</span> {parts}
+      </span>
+    </li>
   );
 }

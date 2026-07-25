@@ -16,6 +16,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWatchRouteImport } from './routes/_authenticated/watch'
 import { Route as AuthenticatedTeamsRouteImport } from './routes/_authenticated/teams'
+import { Route as AuthenticatedStatsRouteImport } from './routes/_authenticated/stats'
 import { Route as AuthenticatedQuizRouteImport } from './routes/_authenticated/quiz'
 import { Route as AuthenticatedMatchesRouteImport } from './routes/_authenticated/matches'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
@@ -58,6 +59,11 @@ const AuthenticatedWatchRoute = AuthenticatedWatchRouteImport.update({
 const AuthenticatedTeamsRoute = AuthenticatedTeamsRouteImport.update({
   id: '/teams',
   path: '/teams',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedStatsRoute = AuthenticatedStatsRouteImport.update({
+  id: '/stats',
+  path: '/stats',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedQuizRoute = AuthenticatedQuizRouteImport.update({
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/matches': typeof AuthenticatedMatchesRoute
   '/quiz': typeof AuthenticatedQuizRoute
+  '/stats': typeof AuthenticatedStatsRoute
   '/teams': typeof AuthenticatedTeamsRouteWithChildren
   '/watch': typeof AuthenticatedWatchRoute
   '/teams/$code': typeof AuthenticatedTeamsCodeRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/matches': typeof AuthenticatedMatchesRoute
   '/quiz': typeof AuthenticatedQuizRoute
+  '/stats': typeof AuthenticatedStatsRoute
   '/teams': typeof AuthenticatedTeamsRouteWithChildren
   '/watch': typeof AuthenticatedWatchRoute
   '/teams/$code': typeof AuthenticatedTeamsCodeRoute
@@ -156,6 +164,7 @@ export interface FileRoutesById {
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/_authenticated/matches': typeof AuthenticatedMatchesRoute
   '/_authenticated/quiz': typeof AuthenticatedQuizRoute
+  '/_authenticated/stats': typeof AuthenticatedStatsRoute
   '/_authenticated/teams': typeof AuthenticatedTeamsRouteWithChildren
   '/_authenticated/watch': typeof AuthenticatedWatchRoute
   '/_authenticated/teams/$code': typeof AuthenticatedTeamsCodeRoute
@@ -175,6 +184,7 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/matches'
     | '/quiz'
+    | '/stats'
     | '/teams'
     | '/watch'
     | '/teams/$code'
@@ -192,6 +202,7 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/matches'
     | '/quiz'
+    | '/stats'
     | '/teams'
     | '/watch'
     | '/teams/$code'
@@ -210,6 +221,7 @@ export interface FileRouteTypes {
     | '/_authenticated/leaderboard'
     | '/_authenticated/matches'
     | '/_authenticated/quiz'
+    | '/_authenticated/stats'
     | '/_authenticated/teams'
     | '/_authenticated/watch'
     | '/_authenticated/teams/$code'
@@ -272,6 +284,13 @@ declare module '@tanstack/react-router' {
       path: '/teams'
       fullPath: '/teams'
       preLoaderRoute: typeof AuthenticatedTeamsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/stats': {
+      id: '/_authenticated/stats'
+      path: '/stats'
+      fullPath: '/stats'
+      preLoaderRoute: typeof AuthenticatedStatsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/quiz': {
@@ -360,6 +379,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
   AuthenticatedMatchesRoute: typeof AuthenticatedMatchesRoute
   AuthenticatedQuizRoute: typeof AuthenticatedQuizRoute
+  AuthenticatedStatsRoute: typeof AuthenticatedStatsRoute
   AuthenticatedTeamsRoute: typeof AuthenticatedTeamsRouteWithChildren
   AuthenticatedWatchRoute: typeof AuthenticatedWatchRoute
 }
@@ -373,6 +393,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
   AuthenticatedMatchesRoute: AuthenticatedMatchesRoute,
   AuthenticatedQuizRoute: AuthenticatedQuizRoute,
+  AuthenticatedStatsRoute: AuthenticatedStatsRoute,
   AuthenticatedTeamsRoute: AuthenticatedTeamsRouteWithChildren,
   AuthenticatedWatchRoute: AuthenticatedWatchRoute,
 }

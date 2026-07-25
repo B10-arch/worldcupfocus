@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ShieldCheck, Users, Wallet, Trophy, Search, Download, Lock, Unlock } from "lucide-react";
 import { LiveStreamAdmin } from "@/components/LiveStreamAdmin";
 import { MatchHighlightsAdmin } from "@/components/MatchHighlightsAdmin";
+import { MatchEventsAdmin } from "@/components/MatchEventsAdmin";
 
 const ENTRY_FEE = 1000;
 
@@ -293,6 +294,8 @@ function AdminPage() {
       </header>
 
       <LiveStreamAdmin />
+
+      <MatchEventsAdmin />
 
       <MatchHighlightsAdmin />
 

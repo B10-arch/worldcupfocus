@@ -6,6 +6,7 @@ import {
   Flag,
   Tv,
   Handshake,
+  BarChart3,
   LogOut,
   ShieldCheck,
 } from "lucide-react";
@@ -18,6 +19,7 @@ const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/matches", label: "Matches", icon: CalendarDays },
   { to: "/teams", label: "Clubs & Table", icon: Flag },
+  { to: "/stats", label: "Stats", icon: BarChart3 },
   { to: "/friendly", label: "Side Bets", icon: Handshake },
   { to: "/watch", label: "Watch", icon: Tv },
 ] as const;
