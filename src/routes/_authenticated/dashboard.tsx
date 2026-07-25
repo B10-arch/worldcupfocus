@@ -5,6 +5,7 @@ import { formatNPT, formatNPTDate } from "@/lib/time";
 import { Handshake, ArrowUpRight, Flame } from "lucide-react";
 import { MatchHighlights } from "@/components/MatchHighlights";
 import { Crest } from "@/components/Crest";
+import { Highlights } from "@/components/Highlights";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard · Focus Premier League Pool" }] }),
@@ -144,6 +145,8 @@ function Dashboard() {
           )}
         </div>
       </section>
+
+      <Highlights />
     </div>
   );
 }
