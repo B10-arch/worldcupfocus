@@ -6,6 +6,7 @@ import { Handshake, ArrowUpRight, Flame } from "lucide-react";
 import { MatchHighlights } from "@/components/MatchHighlights";
 import { Crest } from "@/components/Crest";
 import { Highlights } from "@/components/Highlights";
+import { TransferNews } from "@/components/TransferNews";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard · Focus Premier League Pool" }] }),
@@ -122,29 +123,33 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Match Center */}
-      <section>
-        <div className="mb-6 flex items-end justify-between">
-          <div>
-            <h2 className="font-display text-2xl font-bold">Match Center</h2>
-            <p className="text-sm uppercase text-muted-foreground">
-              All times in Nepal Standard Time (NPT)
-            </p>
+      {/* Match Center + Transfer News side panel */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <section>
+          <div className="mb-6 flex items-end justify-between">
+            <div>
+              <h2 className="font-display text-2xl font-bold">Match Center</h2>
+              <p className="text-sm uppercase text-muted-foreground">
+                All times in Nepal Standard Time (NPT)
+              </p>
+            </div>
+            <span className="rounded-lg bg-pitch/10 px-3 py-1 text-xs font-bold text-pitch">
+              Live tracking
+            </span>
           </div>
-          <span className="rounded-lg bg-pitch/10 px-3 py-1 text-xs font-bold text-pitch">
-            Live tracking
-          </span>
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {matches.data?.map((m) => (
-            <MatchCard key={m.id} match={m} />
-          ))}
-          {!matches.isLoading && matches.data?.length === 0 && (
-            <p className="text-sm text-muted-foreground">No matches scheduled yet.</p>
-          )}
-        </div>
-      </section>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {matches.data?.map((m) => (
+              <MatchCard key={m.id} match={m} />
+            ))}
+            {!matches.isLoading && matches.data?.length === 0 && (
+              <p className="text-sm text-muted-foreground">No matches scheduled yet.</p>
+            )}
+          </div>
+        </section>
+
+        <TransferNews />
+      </div>
 
       <Highlights />
     </div>

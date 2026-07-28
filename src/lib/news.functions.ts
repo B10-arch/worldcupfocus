@@ -1,0 +1,68 @@
+import { createServerFn } from "@tanstack/react-start";
+
+export type NewsItem = { title: string; link: string; source: string; ts: number };
+
+// Verified football sources. Guardian's transfer-window feed and Sky are already
+// transfer-focused; BBC is general football, filtered to transfer stories below.
+const FEEDS: { url: string; source: string; transferOnly?: boolean }[] = [
+  { url: "https://www.theguardian.com/football/transfer-window/rss", source: "Guardian" },
+  { url: "https://www.skysports.com/rss/12040", source: "Sky Sports" },
+  {
+    url: "https://feeds.bbci.co.uk/sport/football/rss.xml",
+    source: "BBC Sport",
+    transferOnly: true,
+  },
+];
+
+const TRANSFER_RE =
+  /transfer|signs?|signing|deal|bid|move|loan|joins?|target|agree|medical|fee|swoop|talks|linked|window|contract|wants|eyeing|close to|snap up/i;
+
+function parseFeed(xml: string, source: string): NewsItem[] {
+  const out: NewsItem[] = [];
+  const items = xml.match(/<item>([\s\S]*?)<\/item>/g) ?? [];
+  for (const raw of items) {
+    const pick = (tag: string) => {
+      const m = new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${tag}>`).exec(
+        raw,
+      );
+      return m ? m[1].trim() : "";
+    };
+    const title = pick("title")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+    const link = pick("link")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+    const dateStr = pick("pubDate").replace(/ BST$/, " +0100").replace(/ BDT$/, " +0100");
+    const ts = Date.parse(dateStr) || 0;
+    if (title && link) out.push({ title, link, source, ts });
+  }
+  return out;
+}
+
+/** Latest football transfer news, merged from verified sources (server-side so
+ *  RSS/CORS isn't a problem). Refetched by the dashboard panel periodically. */
+export const getTransferNews = createServerFn({ method: "GET" }).handler(async () => {
+  const results = await Promise.allSettled(
+    FEEDS.map(async (f) => {
+      const res = await fetch(f.url, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; FocusPool/1.0)" },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) return [] as NewsItem[];
+      let items = parseFeed(await res.text(), f.source);
+      if (f.transferOnly) items = items.filter((i) => TRANSFER_RE.test(i.title));
+      return items;
+    }),
+  );
+  const all = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+  all.sort((a, b) => b.ts - a.ts);
+  const seen = new Set<string>();
+  const deduped = all.filter((i) => {
+    const k = i.title.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  return deduped.slice(0, 30);
+});
