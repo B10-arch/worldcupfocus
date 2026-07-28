@@ -5,8 +5,10 @@ export type NewsItem = { title: string; link: string; source: string; ts: number
 // Verified football sources. Guardian's transfer-window feed and Sky are already
 // transfer-focused; BBC is general football, filtered to transfer stories below.
 const FEEDS: { url: string; source: string; transferOnly?: boolean }[] = [
+  // Guardian's transfer-window feed is already transfer-only. Sky (12040) and BBC
+  // are general football/sport, so they're keyword-filtered to transfer stories.
   { url: "https://www.theguardian.com/football/transfer-window/rss", source: "Guardian" },
-  { url: "https://www.skysports.com/rss/12040", source: "Sky Sports" },
+  { url: "https://www.skysports.com/rss/12040", source: "Sky Sports", transferOnly: true },
   {
     url: "https://feeds.bbci.co.uk/sport/football/rss.xml",
     source: "BBC Sport",
@@ -15,7 +17,7 @@ const FEEDS: { url: string; source: string; transferOnly?: boolean }[] = [
 ];
 
 const TRANSFER_RE =
-  /transfer|signs?|signing|deal|bid|move|loan|joins?|target|agree|medical|fee|swoop|talks|linked|window|contract|wants|eyeing|close to|snap up/i;
+  /\b(transfer|signs?|signing|deal|bid|loan|joins?|target|agree|medical|fee|swoop|talks|linked|contract|wants?|eyeing|eye|interested|offer|approach|chase|pursue|swap|rejects?|clause|personal terms|captures?|completes?|sells?|sold|buys?|purchase|valuation|price tag|move to|move for|snap up|close to)\b/i;
 
 function parseFeed(xml: string, source: string): NewsItem[] {
   const out: NewsItem[] = [];
