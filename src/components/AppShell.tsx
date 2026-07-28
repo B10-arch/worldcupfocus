@@ -10,11 +10,15 @@ import {
   Shirt,
   LogOut,
   ShieldCheck,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { WelcomeIntro } from "@/components/WelcomeIntro";
+import { playPLBack, isVoiceOff, setVoiceOff } from "@/lib/plVoice";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -52,6 +56,15 @@ export function AppShell({
     }
   };
 
+  // "Premier League is Back" voice on Dashboard click (+ mute toggle).
+  const [voiceOff, setVoiceOffState] = useState(isVoiceOff());
+  const toggleVoice = () => {
+    const next = !voiceOff;
+    setVoiceOff(next);
+    setVoiceOffState(next);
+    if (!next) playPLBack(); // give a taste when re-enabling
+  };
+
   async function handleSignOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
@@ -68,6 +81,7 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-background">
+      <WelcomeIntro />
       {showEpl && (
         <div
           className="relative text-white"
@@ -93,7 +107,7 @@ export function AppShell({
       )}
       <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-          <Link to="/dashboard" className="flex items-center gap-3">
+          <Link to="/dashboard" onClick={playPLBack} className="flex items-center gap-3">
             <div
               className="flex size-10 items-center justify-center rounded-xl text-white shadow-glow"
               style={{ backgroundImage: "var(--gradient-brand)" }}
@@ -110,6 +124,7 @@ export function AppShell({
               <Link
                 key={item.to}
                 to={item.to}
+                onClick={item.to === "/dashboard" ? playPLBack : undefined}
                 className="rounded-full px-3 py-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                 activeProps={{
                   className:
@@ -147,6 +162,14 @@ export function AppShell({
               {initials}
             </div>
             <button
+              onClick={toggleVoice}
+              className="rounded-full border border-border p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              aria-label={voiceOff ? "Unmute sound" : "Mute sound"}
+              title={voiceOff ? "Sound off — click to enable" : "Sound on — click to mute"}
+            >
+              {voiceOff ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+            </button>
+            <button
               onClick={handleSignOut}
               className="rounded-full border border-border p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               aria-label="Sign out"
@@ -162,6 +185,7 @@ export function AppShell({
             <Link
               key={item.to}
               to={item.to}
+              onClick={item.to === "/dashboard" ? playPLBack : undefined}
               className="flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground"
               activeProps={{
                 className:

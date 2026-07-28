@@ -92,6 +92,12 @@ function Dashboard() {
             >
               Clubs &amp; table
             </Link>
+            <button
+              onClick={() => window.dispatchEvent(new Event("focus:open-intro"))}
+              className="rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-bold backdrop-blur-sm transition hover:bg-white/10"
+            >
+              ▶ Intro
+            </button>
           </div>
         </div>
 
