@@ -1,6 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 
-export type NewsItem = { title: string; link: string; source: string; ts: number };
+export type NewsItem = { title: string; link: string; source: string; ts: number; pl: boolean };
+
+// A story counts as Premier League if it mentions a PL club (2026/27) or the
+// league itself. Aliases included (Villa, Palace, Spurs, Forest, Man City…).
+const PL_RE =
+  /\b(premier league|arsenal|aston villa|villa|bournemouth|brentford|brighton|chelsea|coventry|crystal palace|palace|everton|fulham|hull|ipswich|leeds|liverpool|manchester city|man city|manchester united|man utd|man united|newcastle|nottingham forest|nott'?m forest|forest|sunderland|tottenham|spurs)\b/i;
 
 // Verified football sources. Guardian's transfer-window feed and Sky are already
 // transfer-focused; BBC is general football, filtered to transfer stories below.
@@ -37,7 +42,7 @@ function parseFeed(xml: string, source: string): NewsItem[] {
       .trim();
     const dateStr = pick("pubDate").replace(/ BST$/, " +0100").replace(/ BDT$/, " +0100");
     const ts = Date.parse(dateStr) || 0;
-    if (title && link) out.push({ title, link, source, ts });
+    if (title && link) out.push({ title, link, source, ts, pl: PL_RE.test(title) });
   }
   return out;
 }

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import { getTransferNews } from "@/lib/news.functions";
 import { Newspaper, ExternalLink } from "lucide-react";
 
@@ -22,12 +23,17 @@ const sourceColor: Record<string, string> = {
 /** Live football transfer-news side panel — merged from verified sources. */
 export function TransferNews() {
   const fetchNews = useServerFn(getTransferNews);
+  const [filter, setFilter] = useState<"ALL" | "PL" | "OTHER">("PL");
   const { data, isLoading, isError } = useQuery({
     queryKey: ["transfer-news"],
     queryFn: () => fetchNews(),
     refetchInterval: 15 * 60_000, // refresh every 15 min
     staleTime: 10 * 60_000,
   });
+
+  const items = (data ?? []).filter((n) =>
+    filter === "ALL" ? true : filter === "PL" ? n.pl : !n.pl,
+  );
 
   return (
     <aside className="lg:sticky lg:top-24">
@@ -40,12 +46,34 @@ export function TransferNews() {
           </span>
         </div>
 
+        <div className="flex gap-1 border-b border-border p-2">
+          {(
+            [
+              ["PL", "Premier League"],
+              ["OTHER", "Other leagues"],
+              ["ALL", "All"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`flex-1 rounded-lg px-2 py-1 text-[11px] font-bold transition ${
+                filter === key
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-secondary"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
           {isLoading && <p className="p-3 text-sm text-muted-foreground">Loading the latest…</p>}
           {isError && (
             <p className="p-3 text-sm text-muted-foreground">Couldn&apos;t load news right now.</p>
           )}
-          {(data ?? []).map((n, i) => (
+          {items.map((n, i) => (
             <a
               key={i}
               href={n.link}
@@ -65,8 +93,11 @@ export function TransferNews() {
               </p>
             </a>
           ))}
-          {data && data.length === 0 && (
-            <p className="p-3 text-sm text-muted-foreground">No transfer news right now.</p>
+          {data && items.length === 0 && (
+            <p className="p-3 text-sm text-muted-foreground">
+              No {filter === "PL" ? "Premier League" : filter === "OTHER" ? "other-league" : ""}{" "}
+              transfer news right now.
+            </p>
           )}
         </div>
 
