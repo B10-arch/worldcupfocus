@@ -2,15 +2,17 @@ import { useEffect, useState } from "react";
 import { X, Volume2 } from "lucide-react";
 import { playPLBack } from "@/lib/plVoice";
 
-const SEEN_KEY = "focus-welcome-seen-v1";
-// Verified Nepal-available PL goal montage (real footage + celebrations).
-const REEL = "Gyafe4HLy9Q";
+const SEEN_KEY = "focus-welcome-seen-v2";
+// Verified Nepal-available (249 countries), embeddable: football fans' passion &
+// atmosphere — tifos, chants, goosebumps. The emotion of the game.
+const REEL = "nL4bORyiYQc";
 
 /** Cinematic "Welcome to Focus Premier League" intro overlay — shows once on
  *  first visit, and can be replayed via the `focus:open-intro` window event. */
 export function WelcomeIntro() {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [unmuted, setUnmuted] = useState(false);
 
   useEffect(() => {
     let first = false;
@@ -93,17 +95,28 @@ export function WelcomeIntro() {
           >
             <div className="relative aspect-video">
               <iframe
-                src={`https://www.youtube-nocookie.com/embed/${REEL}?autoplay=1&mute=1&loop=1&playlist=${REEL}&rel=0&modestbranding=1`}
-                title="Premier League is back"
+                key={unmuted ? "sound" : "muted"}
+                src={`https://www.youtube-nocookie.com/embed/${REEL}?autoplay=1&mute=${
+                  unmuted ? 0 : 1
+                }&loop=1&playlist=${REEL}&rel=0&modestbranding=1&playsinline=1`}
+                title="The emotion of football"
                 className="absolute inset-0 size-full"
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                 allowFullScreen
               />
+              {!unmuted && (
+                <button
+                  onClick={() => setUnmuted(true)}
+                  className="absolute inset-0 flex items-center justify-center bg-black/25 transition hover:bg-black/40"
+                >
+                  <span className="inline-flex animate-pulse items-center gap-2 rounded-full bg-[#e90052] px-5 py-2.5 text-sm font-bold text-white shadow-lg">
+                    <Volume2 className="size-4" /> Tap for sound 🔊
+                  </span>
+                </button>
+              )}
             </div>
           </div>
-          <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-slate-300">
-            <Volume2 className="size-3.5" /> Tap the video for sound
-          </p>
+          <p className="mt-2 text-[11px] text-slate-300">Playing now — tap for the roar.</p>
 
           <button
             onClick={() => close(true)}
