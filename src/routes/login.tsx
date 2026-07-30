@@ -12,7 +12,7 @@ export const Route = createFileRoute("/login")({
       {
         name: "description",
         content:
-          "Sign in to back your team in the Focus Premier League 2026/27 friendly betting pool.",
+          "Sign in to Focus Premier League — side bets with your mates, the manager game, and every kick of the season.",
       },
     ],
   }),
@@ -60,7 +60,7 @@ function LoginPage() {
   return (
     <AuthLayout
       heading="Welcome back"
-      subheading="Sign in to place or update your bet."
+      subheading="Sign in to challenge your mates and manage your squad."
       footer={
         <>
           New here?{" "}

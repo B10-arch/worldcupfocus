@@ -14,7 +14,7 @@ export const Route = createFileRoute("/signup")({
       {
         name: "description",
         content:
-          "Join the Focus Premier League 2026/27 friendly betting pool — back your team and split the glory.",
+          "Join Focus Premier League — challenge your mates on every game, build a squad, and follow every kick.",
       },
     ],
   }),
@@ -144,7 +144,7 @@ function SignupPage() {
   return (
     <AuthLayout
       heading="Create your account"
-      subheading="Use your work email to join the pool."
+      subheading="Use your email to join your mates for the new season."
       footer={
         <>
           Already have an account?{" "}

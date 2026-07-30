@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Trophy } from "lucide-react";
 import type { ReactNode } from "react";
-import trophyHero from "@/assets/trophy-hero.jpg";
+import { CLUB_CRESTS } from "@/lib/clubCrests";
 
 /** Shared two-column shell for the /login and /signup pages. */
 export function AuthLayout({
@@ -17,33 +17,46 @@ export function AuthLayout({
 }) {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-night p-12 text-white lg:flex">
-        <div className="flex items-center gap-3">
+      <div
+        className="relative hidden flex-col justify-between overflow-hidden p-12 text-white lg:flex"
+        style={{
+          background:
+            "radial-gradient(700px 400px at 90% 0%, rgba(233,0,82,.45), transparent), linear-gradient(160deg,#1a0025,#37003c 60%,#2a0733)",
+        }}
+      >
+        <div className="relative z-10 flex items-center gap-3">
           <div
             className="flex size-10 items-center justify-center rounded-xl text-white shadow-glow"
             style={{ backgroundImage: "var(--gradient-brand)" }}
           >
             <Trophy className="size-5" />
           </div>
-          <span className="font-display text-xl font-bold">Focus Premier League Pool</span>
-        </div>
-        <img
-          src={trophyHero}
-          alt="Premier League trophy"
-          width={1024}
-          height={1024}
-          className="absolute inset-0 -z-0 size-full object-cover opacity-40"
-        />
-        <div className="relative z-10 max-w-md">
-          <span className="inline-block rounded-full bg-accent/20 px-3 py-1 text-xs font-bold uppercase tracking-widest text-accent">
-            Premier League 2026/27
+          <span className="font-display text-xl font-bold">
+            Focus <span className="text-[#00ff87]">PL</span>
           </span>
-          <h1 className="mt-4 font-display text-4xl font-bold leading-tight">
-            Back your team. Split the glory.
+        </div>
+
+        {/* Crest wall */}
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 grid -translate-y-1/2 grid-cols-5 gap-6 px-12 opacity-15">
+          {CLUB_CRESTS.map((src, i) => (
+            <img key={i} src={src} alt="" loading="lazy" className="size-14 object-contain" />
+          ))}
+        </div>
+
+        <div className="relative z-10 max-w-md">
+          <span className="inline-block rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#ff5ea0]">
+            🏴󠁧󠁢󠁥󠁮󠁗󠁿 Premier League 2026/27
+          </span>
+          <h1 className="mt-4 font-display text-4xl font-black leading-tight">
+            The Premier League,
+            <br />
+            <span className="bg-gradient-to-r from-[#00ff87] to-[#e90052] bg-clip-text text-transparent">
+              with your mates.
+            </span>
           </h1>
           <p className="mt-3 text-sm text-slate-300">
-            Co-hosted by Canada, Mexico, and the USA. Entry is a flat Rs. 1,000. Tied team? You
-            share the pot equally.
+            Challenge your friends on every game, build a squad from scratch, and follow every kick.
+            No entry fee — all bragging rights.
           </p>
         </div>
       </div>
