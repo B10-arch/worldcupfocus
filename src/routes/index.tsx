@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Trophy, Handshake, Shirt, Newspaper, BarChart3, Film, ArrowRight } from "lucide-react";
-import { CLUB_CRESTS } from "@/lib/clubCrests";
+import { CrestMarquee } from "@/components/CrestMarquee";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -21,29 +21,6 @@ export const Route = createFileRoute("/")({
   }),
   component: Landing,
 });
-
-function CrestMarquee() {
-  const row = [...CLUB_CRESTS, ...CLUB_CRESTS];
-  return (
-    <div className="relative overflow-hidden py-2 [mask-image:linear-gradient(90deg,transparent,#000_12%,#000_88%,transparent)]">
-      <style>{`@keyframes fp-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
-      <div
-        className="flex w-max items-center gap-8"
-        style={{ animation: "fp-marquee 42s linear infinite" }}
-      >
-        {row.map((src, i) => (
-          <img
-            key={i}
-            src={src}
-            alt=""
-            loading="lazy"
-            className="size-11 shrink-0 object-contain opacity-90 drop-shadow"
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 const FEATURES = [
   {

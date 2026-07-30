@@ -7,6 +7,7 @@ import { MatchHighlights } from "@/components/MatchHighlights";
 import { Crest } from "@/components/Crest";
 import { Highlights } from "@/components/Highlights";
 import { TransferNews } from "@/components/TransferNews";
+import { CrestMarquee } from "@/components/CrestMarquee";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard · Focus Premier League Pool" }] }),
@@ -36,76 +37,74 @@ function Dashboard() {
 
   return (
     <div className="space-y-12">
-      {/* New season: Premier League 2026/27 is here. */}
-      <div
-        className="relative overflow-hidden rounded-3xl border-2 border-[#e90052]/40 p-8 text-center text-white shadow-glow"
-        style={{ background: "linear-gradient(135deg,#37003c 0%,#3d195b 45%,#7b1fa2 100%)" }}
-      >
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#e90052] px-4 py-1 text-[11px] font-bold uppercase tracking-[0.25em] text-white">
-          ⚽ New season
-        </span>
-        <h2 className="mt-4 font-display text-4xl font-bold leading-tight md:text-5xl">
-          Premier League 2026/27
-        </h2>
-        <p className="mx-auto mt-3 max-w-xl text-sm text-slate-200">
-          The Focus Pool is back for the Premier League 🏴󠁧󠁢󠁥󠁮󠁗󠁿 — 20 clubs, 38 gameweeks. This
-          season it&apos;s all friendly side bets: challenge your mates on every match.
-        </p>
-        <span className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-4 py-1.5 text-xs font-bold">
-          Season kicks off Sat 22 Aug
-        </span>
-      </div>
-
       {/* Hero + side bets */}
       <div className="grid gap-6 lg:grid-cols-3">
+        {/* Premier League hero */}
         <div
-          className="relative col-span-1 overflow-hidden rounded-3xl p-8 text-white lg:col-span-2"
-          style={{ background: "var(--gradient-night)" }}
+          className="relative col-span-1 flex flex-col overflow-hidden rounded-3xl text-white lg:col-span-2"
+          style={{
+            background:
+              "radial-gradient(900px 420px at 88% -25%, rgba(233,0,82,.55), transparent), radial-gradient(700px 400px at -10% 120%, rgba(0,255,135,.16), transparent), linear-gradient(155deg,#1a0025 0%,#37003c 55%,#2a0733 100%)",
+          }}
         >
-          <span className="inline-flex items-center gap-2 rounded-full bg-accent/20 px-3 py-1 text-xs font-bold uppercase tracking-widest text-accent">
-            <Flame className="size-3" /> Premier League 2026/27
-          </span>
-          <h1 className="mt-4 font-display text-4xl font-bold leading-tight md:text-5xl">
-            Bet Your Mates. Settle Up.
-          </h1>
-          <p className="mt-3 max-w-md text-sm text-slate-300">
-            No entry fee, no prize pot — just friendly side bets. Back a club on any game, name your
-            stake (money or a dare), someone takes the other side, and you settle up once it&apos;s
-            played.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              to="/friendly"
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:scale-105"
-            >
-              Make a side bet <ArrowUpRight className="size-4" />
-            </Link>
-            <Link
-              to="/matches"
-              className="rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-bold backdrop-blur-sm transition hover:bg-white/10"
-            >
-              Fixtures
-            </Link>
-            <Link
-              to="/teams"
-              className="rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-bold backdrop-blur-sm transition hover:bg-white/10"
-            >
-              Clubs &amp; table
-            </Link>
-            <button
-              onClick={() => window.dispatchEvent(new Event("focus:open-intro"))}
-              className="rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-bold backdrop-blur-sm transition hover:bg-white/10"
-            >
-              ▶ Intro
-            </button>
+          <div className="flex-1 p-8">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#e90052]/30 bg-[#e90052]/15 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-[#ff5ea0]">
+              <Flame className="size-3" /> Premier League 2026/27
+            </span>
+            <h1 className="mt-4 font-display text-4xl font-black leading-[1.05] md:text-5xl">
+              Bet Your Mates.
+              <br />
+              <span className="bg-gradient-to-r from-[#00ff87] via-white to-[#e90052] bg-clip-text text-transparent">
+                Settle Up.
+              </span>
+            </h1>
+            <p className="mt-3 max-w-md text-sm text-slate-300">
+              No entry fee, no prize pot — just friendly side bets. Back a club on any game, name
+              your stake (money or a dare), someone takes the other side, and settle up when
+              it&apos;s played.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                to="/friendly"
+                className="inline-flex items-center gap-2 rounded-full bg-[#e90052] px-5 py-2.5 text-sm font-bold text-white transition hover:brightness-110"
+              >
+                Make a side bet <ArrowUpRight className="size-4" />
+              </Link>
+              <Link
+                to="/matches"
+                className="rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-bold backdrop-blur-sm transition hover:bg-white/10"
+              >
+                Fixtures
+              </Link>
+              <Link
+                to="/teams"
+                className="rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-bold backdrop-blur-sm transition hover:bg-white/10"
+              >
+                Clubs &amp; table
+              </Link>
+              <button
+                onClick={() => window.dispatchEvent(new Event("focus:open-intro"))}
+                className="rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-bold backdrop-blur-sm transition hover:bg-white/10"
+              >
+                ▶ Intro
+              </button>
+            </div>
+          </div>
+          {/* Live crest band */}
+          <div className="border-t border-white/10 bg-black/25 py-3">
+            <CrestMarquee size={28} gap={26} duration={40} />
           </div>
         </div>
 
         {/* Friendly side bets */}
-        <div className="flex flex-col justify-between rounded-3xl border border-border bg-surface p-8 shadow-card">
-          <div>
-            <div className="flex items-center gap-2 text-magenta">
-              <Handshake className="size-3" />
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-3xl border border-[#e90052]/20 bg-surface p-8 shadow-card">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-transparent to-[#e90052]/[0.07]" />
+          <div className="pointer-events-none absolute -right-6 -top-6 text-[#e90052] opacity-[0.08]">
+            <Handshake className="size-40" />
+          </div>
+          <div className="relative">
+            <div className="flex items-center gap-2 text-[#e90052]">
+              <Handshake className="size-3.5" />
               <span className="text-xs font-bold uppercase tracking-widest">
                 Friendly Side Bets
               </span>
@@ -114,14 +113,14 @@ function Dashboard() {
               Challenge a friend on any Premier League game
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Pick a team and name your stake — money or a dare. Someone takes the other side and it
-              locks in. Offer as many as you like, then settle up per game once it&apos;s played.
+              Pick a club and name your stake — money or a dare. Someone takes the other side and it
+              locks in. Offer as many as you like, then settle up per game.
             </p>
           </div>
-          <div className="mt-6">
+          <div className="relative mt-6">
             <Link
               to="/friendly"
-              className="inline-block w-full rounded-xl bg-secondary py-3 text-center text-sm font-bold text-primary transition hover:bg-primary/5"
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#e90052] py-3 text-center text-sm font-bold text-white transition hover:brightness-110"
             >
               Make a side bet →
             </Link>
