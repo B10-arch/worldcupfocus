@@ -1,128 +1,158 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TeamPopularity } from "@/components/TeamPopularity";
+import { Trophy } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
-  // Side-bets-only season — the picks leaderboard is retired; go to Side Bets.
-  beforeLoad: () => {
-    throw redirect({ to: "/friendly" });
-  },
-  head: () => ({ meta: [{ title: "Side Bets · Focus Premier League Pool" }] }),
-  component: LeaderboardPage,
+  head: () => ({ meta: [{ title: "Fantasy Table · Focus Premier League Pool" }] }),
+  component: PoolTablePage,
 });
 
-type Pick = {
-  bet_id: string;
-  team_id: string;
-  team_name: string;
-  team_code: string;
-  team_flag_emoji: string;
-  fifa_rank: number | null;
-  points: number;
-  placed_at: string;
-};
+type Entry = { id: string; team_name: string; manager_name: string };
+type Score = { entry_id: string; gameweek: number; points: number };
 
-type LeaderboardRow = {
-  user_id: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  points: number;
-  pick_count: number;
-  first_placed_at: string | null;
-  confirmed_at: string | null;
-  picks: Pick[];
-};
-
-function LeaderboardPage() {
-  const { user } = Route.useRouteContext();
-  const { data } = useQuery({
-    queryKey: ["leaderboard", "full"],
-    refetchInterval: 60_000, // live: standings update as results come in
+function PoolTablePage() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["pool-table"],
+    refetchInterval: 60_000,
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from("leaderboard_entries")
-        .select("*")
-        .gt("pick_count", 0)
-        .order("points", { ascending: false })
-        .order("confirmed_at", { ascending: true });
-      return (data ?? []) as LeaderboardRow[];
+      const [entriesRes, scoresRes] = await Promise.all([
+        (supabase as any).from("pool_entries").select("id, team_name, manager_name"),
+        (supabase as any).from("pool_gw_scores").select("entry_id, gameweek, points"),
+      ]);
+      if (entriesRes.error) throw entriesRes.error;
+      if (scoresRes.error) throw scoresRes.error;
+      return {
+        entries: (entriesRes.data ?? []) as Entry[],
+        scores: (scoresRes.data ?? []) as Score[],
+      };
     },
   });
 
+  const entries = data?.entries ?? [];
+  const scores = data?.scores ?? [];
+
+  // Season total + weeks played per entry.
+  const totals = new Map<string, { total: number; played: number }>();
+  for (const e of entries) totals.set(e.id, { total: 0, played: 0 });
+  for (const s of scores) {
+    const t = totals.get(s.entry_id);
+    if (!t) continue;
+    t.total += s.points;
+    t.played += 1;
+  }
+
+  const standings = entries
+    .map((e) => ({ entry: e, ...(totals.get(e.id) ?? { total: 0, played: 0 }) }))
+    .sort((a, b) => b.total - a.total || a.entry.team_name.localeCompare(b.entry.team_name));
+
+  // Matchweek winners: the top scorer of each week. Ties share the week.
+  const byGw = new Map<number, Score[]>();
+  for (const s of scores) {
+    if (!byGw.has(s.gameweek)) byGw.set(s.gameweek, []);
+    byGw.get(s.gameweek)!.push(s);
+  }
+  const nameOf = new Map(entries.map((e) => [e.id, e.team_name]));
+  const weeks = [...byGw.entries()]
+    .map(([gw, list]) => {
+      const best = Math.max(...list.map((s) => s.points));
+      return {
+        gw,
+        points: best,
+        winners: list
+          .filter((s) => s.points === best)
+          .map((s) => nameOf.get(s.entry_id) ?? "—")
+          .sort(),
+      };
+    })
+    .sort((a, b) => b.gw - a.gw);
+
+  // Weeks won per entry, shown alongside the season total.
+  const wins = new Map<string, number>();
+  for (const w of weeks) {
+    for (const name of w.winners) wins.set(name, (wins.get(name) ?? 0) + 1);
+  }
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <header>
-        <h1 className="font-display text-4xl font-bold">Leaderboard</h1>
+        <h1 className="flex items-center gap-2 font-display text-4xl font-bold">
+          <Trophy className="size-8 text-primary" /> Fantasy table
+        </h1>
         <p className="mt-2 text-muted-foreground">
-          Points update automatically as results come in. Each player backs 1–3 teams.
+          Premier League 2026/27 · {entries.length} managers · updated after every matchweek.
         </p>
       </header>
 
-      <TeamPopularity />
+      {isLoading && <p className="text-muted-foreground">Loading table…</p>}
+      {error && (
+        <p className="rounded-2xl border border-border bg-surface p-6 text-magenta">
+          Could not load the table — the 20260821000000_fantasy_pool.sql migration may not have been
+          run yet.
+        </p>
+      )}
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
-        <table className="w-full text-sm">
-          <thead className="bg-muted text-left text-[10px] uppercase tracking-widest text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">Rank</th>
-              <th className="px-4 py-3">Player</th>
-              <th className="px-4 py-3">Teams</th>
-              <th className="px-4 py-3">Confirmed</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {data?.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
-                  No picks placed yet.
-                </td>
-              </tr>
-            )}
-            {data?.map((row, i) => {
-              const me = row.user_id === user.id;
-              return (
-                <tr key={row.user_id} className={me ? "bg-primary/5" : "hover:bg-muted/40"}>
-                  <td className="px-4 py-4 font-display text-lg font-bold">
-                    {String(i + 1).padStart(2, "0")}
-                  </td>
-                  <td className="px-4 py-4 font-bold">
-                    {row.display_name ?? "Player"}
-                    {me && (
-                      <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase text-primary-foreground">
-                        You
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex flex-wrap gap-1.5">
-                      {(row.picks ?? []).map((p) => (
-                        <span
-                          key={p.bet_id}
-                          className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs"
-                          title={`${p.team_name} · ${p.points} pts`}
-                        >
-                          <span className="text-base leading-none">{p.team_flag_emoji}</span>
-                          <span className="font-bold">{p.team_code}</span>
-                          <span className="text-muted-foreground">{p.points}</span>
-                        </span>
-                      ))}
-                      {row.pick_count < 3 && (
-                        <span className="text-[10px] uppercase text-muted-foreground">
-                          {row.pick_count}/3 picks
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-xs text-muted-foreground">
-                    {row.confirmed_at ? new Date(row.confirmed_at).toLocaleString() : "—"}
-                  </td>
+      {!isLoading && !error && (
+        <>
+          <section className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+            <table className="w-full text-sm">
+              <thead className="bg-muted text-left text-[10px] uppercase tracking-widest text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">#</th>
+                  <th className="px-3 py-2">Team</th>
+                  <th className="px-3 py-2">Manager</th>
+                  <th className="px-2 py-2 text-center">MW</th>
+                  <th className="px-2 py-2 text-center">Wins</th>
+                  <th className="px-3 py-2 text-right">Pts</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {standings.map((row, i) => (
+                  <tr key={row.entry.id} className="hover:bg-muted/40">
+                    <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
+                    <td className="px-3 py-2 font-semibold">{row.entry.team_name}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{row.entry.manager_name}</td>
+                    <td className="px-2 py-2 text-center font-mono">{row.played}</td>
+                    <td className="px-2 py-2 text-center font-mono">
+                      {wins.get(row.entry.team_name) ?? 0}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono font-bold">{row.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section>
+            <h2 className="mb-3 font-display text-xl font-bold">Matchweek winners</h2>
+            {weeks.length === 0 ? (
+              <p className="rounded-2xl border border-border bg-surface p-6 text-muted-foreground">
+                No points recorded yet — the first matchweek winner shows up here once scores are
+                entered.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {weeks.map((w) => (
+                  <div
+                    key={w.gw}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface p-3"
+                  >
+                    <span className="shrink-0 text-xs font-extrabold uppercase tracking-wide text-muted-foreground">
+                      Matchweek {w.gw}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-right font-semibold">
+                      {w.winners.join(", ")}
+                    </span>
+                    <span className="shrink-0 rounded bg-muted px-2 py-0.5 font-mono text-sm font-bold">
+                      {w.points}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }
