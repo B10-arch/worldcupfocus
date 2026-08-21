@@ -26,7 +26,8 @@ function Dashboard() {
       const { data } = await supabase
         .from("matches")
         .select("*, team_a:teams!matches_team_a_id_fkey(*), team_b:teams!matches_team_b_id_fkey(*)")
-        .eq("stage", "league")
+        // Every competition — a Community Shield or FA Cup tie belongs on the
+        // current slate just as much as a league game.
         .gte("kickoff_utc", since)
         .neq("status", "finished")
         .order("kickoff_utc", { ascending: true })
@@ -161,6 +162,12 @@ function Dashboard() {
   );
 }
 
+// Cup competitions carried alongside the league (see sync-fixtures).
+const COMPETITION_LABELS: Record<string, string> = {
+  community_shield: "Community Shield",
+  fa_cup: "FA Cup",
+};
+
 function MatchCard({ match }: { match: any }) {
   const live = match.status === "live";
   const finished = match.status === "finished";
@@ -172,7 +179,8 @@ function MatchCard({ match }: { match: any }) {
             ? `Gameweek ${String(match.group_name ?? "").replace(/\D/g, "") || match.group_name}`
             : match.stage === "group"
               ? `Group ${match.group_name}`
-              : String(match.stage).toUpperCase()}
+              : (COMPETITION_LABELS[match.stage] ??
+                String(match.stage).replace(/_/g, " ").toUpperCase())}
           {match.venue ? ` · ${match.venue}` : ""}
         </span>
         <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-bold">

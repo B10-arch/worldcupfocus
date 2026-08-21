@@ -18,15 +18,26 @@ const NPT_OFFSET_MS = (5 * 60 + 45) * 60 * 1000;
 const nptDayIndex = (utc: string | number | Date) =>
   Math.floor((new Date(utc).getTime() + NPT_OFFSET_MS) / 86_400_000);
 
+// Every competition we carry, in display order. `stage` values are written by
+// the sync-fixtures edge function.
+const COMPETITIONS: { stage: string; label: string; short: string }[] = [
+  { stage: "league", label: "Premier League", short: "Premier League" },
+  { stage: "community_shield", label: "Community Shield", short: "Community Shield" },
+  { stage: "fa_cup", label: "FA Cup", short: "FA Cup" },
+];
+const LABEL_BY_STAGE = new Map(COMPETITIONS.map((c) => [c.stage, c.label]));
+
 function MatchesPage() {
   const [showPast, setShowPast] = useState(false);
+  const [comp, setComp] = useState<string>("all");
   const { data: matches } = useQuery({
     queryKey: ["matches", "all"],
     queryFn: async () => {
+      // All competitions — the Premier League, the Community Shield and the FA
+      // Cup all live in `matches`, told apart by `stage`.
       const { data } = await supabase
         .from("matches")
         .select("*, team_a:teams!matches_team_a_id_fkey(*), team_b:teams!matches_team_b_id_fkey(*)")
-        .eq("stage", "league") // Premier League fixtures only
         .order("kickoff_utc");
       return data ?? [];
     },
@@ -54,9 +65,15 @@ function MatchesPage() {
     eventsByMatch.set(e.match_id, arr);
   }
 
+  // Only offer a competition tab once that competition actually has fixtures —
+  // the FA Cup rounds involving PL clubs aren't published until the winter.
+  const stagesPresent = new Set((matches ?? []).map((m) => m.stage));
+  const tabs = COMPETITIONS.filter((c) => stagesPresent.has(c.stage));
+  const visible = (matches ?? []).filter((m) => comp === "all" || m.stage === comp);
+
   // Confirmed matches grouped by NPT day; "Time TBC" fixtures kept separate.
-  const confirmed = (matches ?? []).filter((m) => !m.time_tbc);
-  const tbc = (matches ?? []).filter((m) => m.time_tbc);
+  const confirmed = visible.filter((m) => !m.time_tbc);
+  const tbc = visible.filter((m) => m.time_tbc);
 
   const byDay = new Map<number, any[]>();
   for (const m of confirmed) {
@@ -99,9 +116,10 @@ function MatchesPage() {
         <div>
           <h2 className="font-display text-4xl font-bold">Match schedule</h2>
           <p className="mt-2 text-muted-foreground">
-            All kickoff times converted to Nepal Standard Time (UTC +5:45).
+            Premier League, Community Shield and FA Cup. All kickoff times converted to Nepal
+            Standard Time (UTC +5:45).
             {!isTournamentStarted() &&
-              " The tournament has not started yet — no scores will appear until matches kick off."}
+              " The season has not started yet — no scores will appear until matches kick off."}
           </p>
         </div>
         {past.length > 0 && hasCurrent && (
@@ -114,6 +132,30 @@ function MatchesPage() {
           </button>
         )}
       </header>
+
+      {tabs.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {[{ stage: "all", short: "All competitions" }, ...tabs].map((t) => (
+            <button
+              key={t.stage}
+              onClick={() => setComp(t.stage)}
+              className={`rounded-full border px-4 py-1.5 text-sm font-bold transition ${
+                comp === t.stage
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-surface text-muted-foreground hover:border-primary hover:text-foreground"
+              }`}
+            >
+              {t.short}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {visible.length === 0 && (
+        <p className="rounded-2xl border border-border bg-surface p-6 text-center text-muted-foreground">
+          No fixtures loaded for this competition yet.
+        </p>
+      )}
 
       {today && (
         <Section
@@ -204,6 +246,21 @@ function Section({
   );
 }
 
+/**
+ * Competition line for a match card: "Gameweek 4" for the league, and
+ * "FA Cup · Third Round" for cup ties (the round is dropped when it would just
+ * repeat the competition name).
+ */
+function stageLabel(m: any): string {
+  if (m.stage === "league") {
+    return `Gameweek ${String(m.group_name ?? "").replace(/\D/g, "") || m.group_name}`;
+  }
+  if (m.stage === "group") return `Group ${m.group_name}`;
+  const comp = LABEL_BY_STAGE.get(m.stage) ?? String(m.stage).replace(/_/g, " ").toUpperCase();
+  const round = String(m.group_name ?? "").trim();
+  return round && round !== comp ? `${comp} · ${round}` : comp;
+}
+
 /** A single match as a responsive card: meta + status on top, teams below. */
 function MatchRow({ m, events = [], hideTime }: { m: any; events?: any[]; hideTime?: boolean }) {
   const played = m.status === "finished";
@@ -214,12 +271,7 @@ function MatchRow({ m, events = [], hideTime }: { m: any; events?: any[]; hideTi
       .sort((a, b) => (a.minute ?? 0) - (b.minute ?? 0));
   const homeGoals = m.team_a?.id ? goalFor(m.team_a.id) : [];
   const awayGoals = m.team_b?.id ? goalFor(m.team_b.id) : [];
-  const stage =
-    m.stage === "league"
-      ? `Gameweek ${String(m.group_name ?? "").replace(/\D/g, "") || m.group_name}`
-      : m.stage === "group"
-        ? `Group ${m.group_name}`
-        : String(m.stage).toUpperCase();
+  const stage = stageLabel(m);
   return (
     <div className="rounded-2xl border border-border bg-surface p-3 shadow-card sm:px-4">
       <div className="mb-2 flex items-center justify-between gap-2">

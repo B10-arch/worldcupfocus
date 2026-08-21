@@ -1,50 +1,23 @@
-// Sync World Cup match results from ESPN's public feed into the `matches` table,
-// then recompute pool points. Idempotent — safe to run every few minutes.
+// Sync live scores/status from ESPN's public feed into the `matches` table, then
+// recompute pool points. Idempotent — safe to run every few minutes.
 //
-// Invoked by pg_cron (see setup) on a schedule. Reads the ESPN scoreboard for a
-// small window of dates, maps each match to our group-stage rows by team pair,
-// and updates score/status/winner. Knockout rows (no teams assigned yet) are
-// skipped until the bracket is populated.
+// Covers every competition in COMPETITIONS (Premier League, Community Shield,
+// FA Cup). Only rows that already exist are updated — creating fixtures is
+// sync-fixtures' job — so a match missing here means the fixture list is stale.
+//
+// Invoked by pg_cron (see 20260611180000_match_sync_cron.sql). Reads a small
+// window of dates, matches each event to our row by ESPN event id (falling back
+// to team pair for rows seeded before event ids existed), and updates
+// score/status/winner.
 //
 // Deployed with --no-verify-jwt. If the SYNC_SECRET env var is set, callers must
 // pass it via the `x-sync-secret` header (or `?key=`); otherwise open (harmless —
 // it only mirrors public results and is idempotent).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { COMPETITIONS, TeamResolver, fetchEvents, sidesOf, stateOf } from "../_shared/espn.ts";
 
-const ESPN_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard";
-
-// Normalize a country name: lowercase, strip accents, drop non-alphanumerics.
-function norm(s: string): string {
-  return (s ?? "")
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "") // strip combining diacritical marks
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-}
-
-// ESPN spelling (normalized) -> our team name (normalized). Covers the names
-// that differ between the feed and our seed data.
-const ALIASES: Record<string, string> = {
-  turkey: "turkiye",
-  cotedivoire: "ivorycoast",
-  czechrepublic: "czechia",
-  usa: "unitedstates",
-  unitedstatesofamerica: "unitedstates",
-  congodr: "drcongo",
-  drcongo: "drcongo",
-  democraticrepublicofcongo: "drcongo",
-  caboverde: "capeverde",
-  southkorea: "southkorea",
-  korearepublic: "southkorea",
-  republicofkorea: "southkorea",
-  bosniaherzegovina: "bosniaandherzegovina",
-  iranislamicrepublic: "iran",
-};
-
-function ymd(d: Date): string {
-  return d.toISOString().slice(0, 10).replace(/-/g, "");
-}
+const pairKey = (a: string, b: string) => [a, b].sort().join("|");
 
 Deno.serve(async (req) => {
   const secret = Deno.env.get("SYNC_SECRET");
@@ -59,75 +32,62 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // 1. Resolver: normalized team name (incl. aliases) -> our team id.
-  const { data: teams, error: teamsErr } = await supabase.from("teams").select("id, name");
+  // 1. Resolver: ESPN team (id or name) -> our team id. Look-up only here.
+  const { data: teams, error: teamsErr } = await supabase
+    .from("teams")
+    .select("id, code, name, flag_emoji");
   if (teamsErr) return Response.json({ ok: false, error: teamsErr.message }, { status: 500 });
-  const nameToId = new Map<string, string>();
-  for (const t of teams ?? []) nameToId.set(norm(t.name), t.id);
-  const resolve = (espnName: string): string | null => {
-    const n = norm(espnName);
-    if (nameToId.has(n)) return nameToId.get(n)!;
-    const aliased = ALIASES[n];
-    if (aliased && nameToId.has(aliased)) return nameToId.get(aliased)!;
-    return null;
-  };
+  const resolver = new TeamResolver(supabase, teams ?? []);
 
-  // 2. Index our matches that have both teams (group stage) by unordered pair.
+  // 2. Index our matches by ESPN event id, and by unordered team pair as a
+  //    fallback for rows that predate the event id column.
   const { data: matches, error: matchErr } = await supabase
     .from("matches")
-    .select("id, team_a_id, team_b_id, status")
+    .select("id, espn_event_id, team_a_id, team_b_id, status")
     .not("team_a_id", "is", null)
     .not("team_b_id", "is", null);
   if (matchErr) return Response.json({ ok: false, error: matchErr.message }, { status: 500 });
-  const pairKey = (a: string, b: string) => [a, b].sort().join("|");
-  const byPair = new Map<string, { id: string; team_a_id: string; team_b_id: string; status: string }>();
-  for (const m of matches ?? []) byPair.set(pairKey(m.team_a_id, m.team_b_id), m);
-
-  // 3. Pull ESPN for a small window (yesterday..tomorrow UTC) to catch
-  //    just-finished, live, and same-day matches across timezones.
-  const now = new Date();
-  const dates = [-1, 0, 1].map((off) => {
-    const d = new Date(now);
-    d.setUTCDate(d.getUTCDate() + off);
-    return ymd(d);
-  });
-  const events: any[] = [];
-  for (const d of dates) {
-    try {
-      const r = await fetch(`${ESPN_URL}?dates=${d}`);
-      if (r.ok) {
-        const j = await r.json();
-        if (Array.isArray(j.events)) events.push(...j.events);
-      }
-    } catch (_) {
-      // ignore a single failed day fetch
-    }
+  const byEventId = new Map<string, any>();
+  const byPair = new Map<string, any>();
+  for (const m of matches ?? []) {
+    if (m.espn_event_id) byEventId.set(String(m.espn_event_id), m);
+    byPair.set(pairKey(m.team_a_id, m.team_b_id), m);
   }
+
+  // 3. Pull each competition for yesterday..tomorrow UTC, to catch just-finished,
+  //    live, and same-day matches across timezones.
+  const now = new Date();
+  const from = new Date(now);
+  from.setUTCDate(from.getUTCDate() - 1);
+  const to = new Date(now);
+  to.setUTCDate(to.getUTCDate() + 1);
+
+  const events: any[] = [];
+  for (const comp of COMPETITIONS) events.push(...(await fetchEvents(comp.slug, from, to)));
 
   // 4. Map + update.
   let updated = 0;
   const skipped: string[] = [];
   for (const ev of events) {
-    const comp = ev?.competitions?.[0];
-    const competitors: any[] = comp?.competitors ?? [];
-    const home = competitors.find((c) => c.homeAway === "home");
-    const away = competitors.find((c) => c.homeAway === "away");
-    if (!home || !away) continue;
+    const sides = sidesOf(ev);
+    if (!sides) continue;
+    const { home, away } = sides;
 
-    const homeId = resolve(home.team?.displayName ?? home.team?.name ?? "");
-    const awayId = resolve(away.team?.displayName ?? away.team?.name ?? "");
-    const label = `${away.team?.displayName ?? "?"} v ${home.team?.displayName ?? "?"}`;
+    const homeId = resolver.find(home.team);
+    const awayId = resolver.find(away.team);
+    const label = `${away.team?.displayName ?? "?"} at ${home.team?.displayName ?? "?"}`;
     if (!homeId || !awayId) {
       skipped.push(`unmapped teams: ${label}`);
       continue;
     }
-    const m = byPair.get(pairKey(homeId, awayId));
+
+    const m = byEventId.get(String(ev.id)) ?? byPair.get(pairKey(homeId, awayId));
     if (!m) {
-      skipped.push(`no match row (likely knockout TBD): ${label}`);
+      skipped.push(`no match row (run sync-fixtures): ${label}`);
       continue;
     }
 
-    const state: string = ev?.status?.type?.state ?? comp?.status?.type?.state ?? "pre";
+    const state = stateOf(ev);
     if (state === "pre") continue; // not started — nothing to update
 
     const status = state === "post" ? "finished" : "live";
@@ -146,7 +106,14 @@ Deno.serve(async (req) => {
 
     const { error: upErr } = await supabase
       .from("matches")
-      .update({ score_a: scoreA, score_b: scoreB, status, winner_team_id: winnerTeamId })
+      .update({
+        score_a: scoreA,
+        score_b: scoreB,
+        status,
+        winner_team_id: winnerTeamId,
+        // Adopt the event id so future runs match exactly, not just by pair.
+        espn_event_id: String(ev.id),
+      })
       .eq("id", m.id);
     if (upErr) {
       skipped.push(`update failed ${label}: ${upErr.message}`);
@@ -155,7 +122,7 @@ Deno.serve(async (req) => {
     updated++;
   }
 
-  // 5. Recompute pool points from finished results.
+  // 5. Recompute pool points from finished results (league fixtures only).
   const { error: rpcErr } = await supabase.rpc("recompute_points");
 
   return Response.json({

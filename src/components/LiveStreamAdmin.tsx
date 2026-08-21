@@ -79,7 +79,19 @@ export function LiveStreamAdmin() {
       codeB: m.team_b?.code,
       urls: links[m.id] ?? "",
     }));
-    const embed = buildStreams(perMatch, defaultUrl);
+    // Only the next 24 matches are editable here, but embed_url holds links for
+    // the whole season. Carry over every stored entry this form isn't showing,
+    // otherwise saving would wipe the links for matches further out.
+    const shown = new Set(
+      (matchesQ.data ?? []).map((m) => matchKey(m.team_a?.code, m.team_b?.code)),
+    );
+    const untouched = [...parseStreams(streamQ.data?.embed_url).byMatch.entries()]
+      .filter(([key]) => !shown.has(key))
+      .map(([key, urls]) => {
+        const [codeA, codeB] = key.split("-"); // matchKey = sorted codes joined by "-"
+        return { codeA, codeB, urls: urls.join(" ") };
+      });
+    const embed = buildStreams([...perMatch, ...untouched], defaultUrl);
     const { error } = await (supabase as any)
       .from("live_stream")
       .update({ embed_url: embed, title: title.trim() })
