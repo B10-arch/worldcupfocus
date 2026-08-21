@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Trophy, Handshake, Shirt, Newspaper, BarChart3, Film, ArrowRight } from "lucide-react";
+import { Trophy, Handshake, Newspaper, BarChart3, Film, ArrowRight } from "lucide-react";
 import { CrestMarquee } from "@/components/CrestMarquee";
 
 export const Route = createFileRoute("/")({
@@ -27,11 +27,6 @@ const FEATURES = [
     icon: Handshake,
     title: "Side Bets",
     body: "Challenge a mate on any game — pick a club, name your stake (money or a dare). One taps accept, and you settle up per game. No pot, no house — just you vs them.",
-  },
-  {
-    icon: Shirt,
-    title: "Manager",
-    body: "£100m, 15 players, one dream squad. Sign real Premier League stars, pick your formation on the pitch, and watch your XI rating climb. Buy low, sell high.",
   },
   {
     icon: BarChart3,
