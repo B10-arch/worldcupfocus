@@ -86,6 +86,34 @@ export function PoolAdmin() {
   }
 
   const entries = entriesQ.data ?? [];
+  const allScores = scoresQ.data ?? [];
+
+  // Season standings — the same table everyone sees on the Fantasy Table page,
+  // repeated here so you can enter points and watch the effect without leaving
+  // the panel. Weeks won are derived, matching the public page exactly.
+  const totals = new Map<string, { total: number; played: number }>();
+  for (const e of entries) totals.set(e.id, { total: 0, played: 0 });
+  for (const sc of allScores) {
+    const t = totals.get(sc.entry_id);
+    if (!t) continue;
+    t.total += sc.points;
+    t.played += 1;
+  }
+  const byWeek = new Map<number, Score[]>();
+  for (const sc of allScores) {
+    if (!byWeek.has(sc.gameweek)) byWeek.set(sc.gameweek, []);
+    byWeek.get(sc.gameweek)!.push(sc);
+  }
+  const weeksWon = new Map<string, number>();
+  for (const list of byWeek.values()) {
+    const top = Math.max(...list.map((x) => x.points));
+    for (const sc of list.filter((x) => x.points === top)) {
+      weeksWon.set(sc.entry_id, (weeksWon.get(sc.entry_id) ?? 0) + 1);
+    }
+  }
+  const standings = entries
+    .map((e) => ({ e, ...(totals.get(e.id) ?? { total: 0, played: 0 }) }))
+    .sort((a, b) => b.total - a.total || a.e.team_name.localeCompare(b.e.team_name));
   // Live winner preview from what's currently typed.
   const typed = entries
     .map((e) => ({ e, n: Number(points[e.id]) }))
@@ -163,6 +191,42 @@ export function PoolAdmin() {
       >
         {saving ? "Saving…" : `Save matchweek ${gw}`}
       </button>
+
+      {entries.length > 0 && (
+        <div className="mt-8">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Fantasy table
+          </p>
+          <div className="overflow-hidden rounded-2xl border border-border bg-background">
+            <table className="w-full text-sm">
+              <thead className="bg-muted text-left text-[10px] uppercase tracking-widest text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">#</th>
+                  <th className="px-3 py-2">Team</th>
+                  <th className="px-3 py-2">Manager</th>
+                  <th className="px-2 py-2 text-center">MW</th>
+                  <th className="px-2 py-2 text-center">Wins</th>
+                  <th className="px-3 py-2 text-right">Pts</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {standings.map((row, i) => (
+                  <tr key={row.e.id} className="hover:bg-muted/40">
+                    <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
+                    <td className="px-3 py-2 font-semibold">{row.e.team_name}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{row.e.manager_name}</td>
+                    <td className="px-2 py-2 text-center font-mono">{row.played}</td>
+                    <td className="px-2 py-2 text-center font-mono">
+                      {weeksWon.get(row.e.id) ?? 0}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono font-bold">{row.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
