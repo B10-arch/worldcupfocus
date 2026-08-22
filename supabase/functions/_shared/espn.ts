@@ -207,3 +207,80 @@ export function roundLabel(ev: any, fallback: string): string {
   const headline = notes.find((n) => n?.headline)?.headline;
   return String(headline || ev?.season?.type?.name || fallback).slice(0, 60);
 }
+
+// ---------------------------------------------------------------------------
+// Goals
+// ---------------------------------------------------------------------------
+
+export type Goal = {
+  kind: "goal" | "penalty" | "own_goal";
+  minute: number | null;
+  scorer: string;
+  assist: string | null;
+  espnTeamId: string | null;
+};
+
+/** "45'+2" / "90'" -> 45 / 90. Stoppage time folds into the base minute. */
+function minuteOf(display: string | undefined): number | null {
+  const m = String(display ?? "").match(/(\d+)/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n >= 0 && n <= 130 ? n : null;
+}
+
+/**
+ * Goals for one match, from ESPN's summary feed.
+ *
+ * The scorer is the first participant; the assister is named in the event text
+ * ("… Assisted by X.") and also appears as a second participant. We read the
+ * text first because it states the relationship explicitly, and fall back to
+ * participant order.
+ */
+export async function fetchGoals(slug: string, eventId: string): Promise<Goal[]> {
+  let json: any;
+  try {
+    const r = await fetch(
+      `${SCOREBOARD}/${slug}/summary?event=${encodeURIComponent(eventId)}`,
+    );
+    if (!r.ok) return [];
+    json = await r.json();
+  } catch {
+    return [];
+  }
+
+  const out: Goal[] = [];
+  for (const ev of json?.keyEvents ?? []) {
+    const type = String(ev?.type?.type ?? "").toLowerCase();
+    const text = String(ev?.text ?? "");
+    if (!ev?.scoringPlay && !type.includes("goal")) continue;
+    if (type.includes("card") || type.includes("substitution")) continue;
+
+    const participants: any[] = ev?.participants ?? [];
+    const scorer = String(participants[0]?.athlete?.displayName ?? "").trim();
+    if (!scorer) continue;
+
+    const own = type.includes("own") || /own goal/i.test(text);
+    const pen = type.includes("penalty") || /penalt/i.test(text);
+
+    // Prefer the participant entry: it is just the player's name. The text
+    // version trails descriptive prose ("… with a cross following a set piece
+    // situation"), so it is only a fallback and gets cut at the first clause.
+    const fromParticipants = String(participants[1]?.athlete?.displayName ?? "").trim();
+    const fromText = text
+      .match(/assisted by ([^.]+)/i)?.[1]
+      ?.split(/\s+(?:with|following|after|from)\s+/i)[0]
+      ?.trim();
+    // A penalty is not "assisted"; ESPN sometimes lists the player who won the
+    // penalty as a second participant, which is not an assist.
+    const assist = own || pen ? null : fromParticipants || fromText || null;
+
+    out.push({
+      kind: own ? "own_goal" : pen ? "penalty" : "goal",
+      minute: minuteOf(ev?.clock?.displayValue),
+      scorer,
+      assist,
+      espnTeamId: ev?.team?.id ? String(ev.team.id) : null,
+    });
+  }
+  return out;
+}

@@ -15,7 +15,15 @@
 // it only mirrors public results and is idempotent).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { COMPETITIONS, TeamResolver, fetchEvents, sidesOf, stateOf } from "../_shared/espn.ts";
+import {
+  COMPETITIONS,
+  TeamResolver,
+  fetchEvents,
+  fetchGoals,
+  sidesOf,
+  stateOf,
+  type Competition,
+} from "../_shared/espn.ts";
 
 const pairKey = (a: string, b: string) => [a, b].sort().join("|");
 
@@ -62,13 +70,16 @@ Deno.serve(async (req) => {
   const to = new Date(now);
   to.setUTCDate(to.getUTCDate() + 1);
 
-  const events: any[] = [];
-  for (const comp of COMPETITIONS) events.push(...(await fetchEvents(comp.slug, from, to)));
+  const events: { comp: Competition; ev: any }[] = [];
+  for (const comp of COMPETITIONS) {
+    for (const ev of await fetchEvents(comp.slug, from, to)) events.push({ comp, ev });
+  }
 
   // 4. Map + update.
   let updated = 0;
+  let goalsWritten = 0;
   const skipped: string[] = [];
-  for (const ev of events) {
+  for (const { comp, ev } of events) {
     const sides = sidesOf(ev);
     if (!sides) continue;
     const { home, away } = sides;
@@ -120,6 +131,30 @@ Deno.serve(async (req) => {
       continue;
     }
     updated++;
+
+    // Goals for this match. ESPN is treated as the source of truth: the match's
+    // existing events are replaced wholesale, which keeps re-runs idempotent
+    // without needing a unique constraint on match_events. Any goals typed by
+    // hand for this match are superseded.
+    try {
+      const goals = await fetchGoals(comp.slug, String(ev.id));
+      if (goals.length) {
+        await supabase.from("match_events").delete().eq("match_id", m.id);
+        const rows = goals.map((g) => ({
+          match_id: m.id,
+          team_id: g.espnTeamId ? resolver.find({ id: g.espnTeamId }) : null,
+          kind: g.kind,
+          minute: g.minute,
+          scorer: g.scorer,
+          assist: g.assist,
+        }));
+        const { error: gErr } = await supabase.from("match_events").insert(rows);
+        if (gErr) skipped.push(`goals failed ${label}: ${gErr.message}`);
+        else goalsWritten += rows.length;
+      }
+    } catch (e) {
+      skipped.push(`goals errored ${label}: ${String(e)}`);
+    }
   }
 
   // 5. Recompute pool points from finished results (league fixtures only).
@@ -129,6 +164,7 @@ Deno.serve(async (req) => {
     ok: true,
     events_seen: events.length,
     updated,
+    goals_written: goalsWritten,
     skipped,
     recompute_error: rpcErr?.message ?? null,
     at: new Date().toISOString(),
