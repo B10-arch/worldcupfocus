@@ -32,6 +32,7 @@ function MatchesPage() {
   const [comp, setComp] = useState<string>("all");
   const { data: matches } = useQuery({
     queryKey: ["matches", "all"],
+    refetchInterval: 60_000, // live: pull fresh scores/status every 60s
     queryFn: async () => {
       // All competitions — the Premier League, the Community Shield and the FA
       // Cup all live in `matches`, told apart by `stage`.
@@ -264,6 +265,9 @@ function stageLabel(m: any): string {
 /** A single match as a responsive card: meta + status on top, teams below. */
 function MatchRow({ m, events = [], hideTime }: { m: any; events?: any[]; hideTime?: boolean }) {
   const played = m.status === "finished";
+  const live = m.status === "live";
+  // A score exists as soon as a match is under way; only upcoming games have none.
+  const hasScore = (live || played) && m.score_a != null && m.score_b != null;
   // Goals split by side (home = team_a). Own goals count for the OTHER team.
   const goalFor = (teamId: string) =>
     events
@@ -295,8 +299,12 @@ function MatchRow({ m, events = [], hideTime }: { m: any; events?: any[]; hideTi
       <div className="flex items-center gap-2">
         <Crest src={m.team_a?.flag_emoji} size={28} />
         <span className="min-w-0 flex-1 truncate font-semibold">{m.team_a?.name ?? "TBD"}</span>
-        {played ? (
-          <span className="shrink-0 rounded bg-muted px-2 py-0.5 font-mono text-sm font-bold">
+        {hasScore ? (
+          <span
+            className={`shrink-0 rounded px-2 py-0.5 font-mono text-sm font-bold ${
+              live ? "bg-magenta/10 text-magenta" : "bg-muted"
+            }`}
+          >
             {m.score_a}–{m.score_b}
           </span>
         ) : (
